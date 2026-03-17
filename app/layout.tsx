@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Virgo Hub — Especificação do Banco de Dados',
-  description: 'Especificação técnica detalhada do banco de dados Firestore para o sistema Virgo Hub — plataforma de gestão para agências de marketing digital.',
+  title: 'Virgo Hub — CRM para Agências de Marketing Digital',
+  description: 'Plataforma completa de gestão para agências de marketing digital. Gerencie clientes, projetos, entregas, time e leads em um só lugar.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -35,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body className="font-sans antialiased">
         {children}
         <Analytics />

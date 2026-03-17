@@ -1,0 +1,322 @@
+"use client";
+import { useState, useMemo } from "react";
+import { Plus, X, Search, Mail, Phone, Shield, User, Users } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useUsersStore, useTasksStore, useProjectsStore } from "@/lib/store";
+import type { User as UserType, Role } from "@/lib/types";
+import { getInitials, generateId } from "@/lib/utils-crm";
+
+const ROLE_LABELS: Record<Role, string> = {
+  admin: "Administrador",
+  leader: "Líder",
+  collaborator: "Colaborador",
+};
+
+const ROLE_COLORS: Record<Role, string> = {
+  admin: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  leader: "bg-blue-100 text-blue-800 border-blue-200",
+  collaborator: "bg-gray-100 text-gray-700 border-gray-200",
+};
+
+const ROLE_ICON_BG: Record<Role, string> = {
+  admin: "bg-yellow-400",
+  leader: "bg-blue-500",
+  collaborator: "bg-gray-700",
+};
+
+const DEPARTMENTS = ["Gestão", "Tráfego Pago", "Design", "Conteúdo", "Social Media", "SEO", "Desenvolvimento"];
+
+const EMPTY_USER: Omit<UserType, "id" | "createdAt"> = {
+  name: "", email: "", phone: "", role: "collaborator",
+  department: "Design", position: "", active: true,
+};
+
+export default function EquipePage() {
+  const { users, addUser, updateUser, deleteUser } = useUsersStore();
+  const { tasks } = useTasksStore();
+  const { projects } = useProjectsStore();
+
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState<Role | "all">("all");
+  const [modal, setModal] = useState<Partial<UserType> | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [detail, setDetail] = useState<UserType | null>(null);
+
+  const filtered = useMemo(() => users.filter((u) => {
+    const matchSearch = search === "" || u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) || u.department?.toLowerCase().includes(search.toLowerCase());
+    const matchRole = filterRole === "all" || u.role === filterRole;
+    return matchSearch && matchRole;
+  }), [users, search, filterRole]);
+
+  const handleSave = () => {
+    if (!modal?.name || !modal?.email) return;
+    if (isEditing && modal.id) {
+      updateUser(modal.id, modal);
+    } else {
+      addUser({ ...EMPTY_USER, ...modal, id: generateId("u"), createdAt: new Date().toISOString() } as UserType);
+    }
+    setModal(null); setIsEditing(false);
+  };
+
+  const getUserStats = (userId: string) => {
+    const openTasks = tasks.filter((t) => t.assigneeId === userId && t.status !== "concluida").length;
+    const doneTasks = tasks.filter((t) => t.assigneeId === userId && t.status === "concluida").length;
+    const activeProjects = projects.filter((p) => p.teamIds.includes(userId) && p.status !== "concluido" && p.status !== "cancelado").length;
+    return { openTasks, doneTasks, activeProjects };
+  };
+
+  const roleCount = (role: Role) => users.filter((u) => u.role === role && u.active).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={<Users size={16} />} label="Total de Membros" value={users.filter(u => u.active).length} color="bg-black text-yellow-400" />
+        <StatCard icon={<Shield size={16} />} label="Administradores" value={roleCount("admin")} color="bg-yellow-400 text-black" />
+        <StatCard icon={<User size={16} />} label="Líderes" value={roleCount("leader")} color="bg-blue-500 text-white" />
+        <StatCard icon={<User size={16} />} label="Colaboradores" value={roleCount("collaborator")} color="bg-gray-700 text-white" />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar membro..."
+            className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white w-56 focus:outline-none focus:border-yellow-400" />
+        </div>
+        <div className="flex gap-1 border border-gray-200 rounded-lg overflow-hidden bg-white p-1">
+          {(["all", "admin", "leader", "collaborator"] as const).map((r) => (
+            <button key={r} onClick={() => setFilterRole(r)}
+              className={cn("text-xs px-3 py-1.5 rounded font-medium transition-colors",
+                filterRole === r ? "bg-black text-yellow-400" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              )}>
+              {r === "all" ? "Todos" : ROLE_LABELS[r]}
+            </button>
+          ))}
+        </div>
+        <button onClick={() => { setModal({ ...EMPTY_USER }); setIsEditing(false); }}
+          className="ml-auto flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors">
+          <Plus size={15} /> Novo Membro
+        </button>
+      </div>
+
+      {/* Grid */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((user) => {
+          const stats = getUserStats(user.id);
+          return (
+            <div
+              key={user.id}
+              className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setDetail(user)}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", ROLE_ICON_BG[user.role])}>
+                    <span className={cn("font-black text-sm", user.role === "admin" ? "text-black" : "text-white")}>
+                      {getInitials(user.name)}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 text-sm leading-tight">{user.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{user.position}</p>
+                  </div>
+                </div>
+                <span className={cn(
+                  "text-[10px] px-2 py-1 rounded-full border font-semibold flex-shrink-0",
+                  user.active ? ROLE_COLORS[user.role] : "bg-gray-100 text-gray-400 border-gray-200"
+                )}>
+                  {user.active ? ROLE_LABELS[user.role] : "Inativo"}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 mb-4">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Mail size={11} className="text-gray-400" /> {user.email}
+                </div>
+                {user.phone && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Phone size={11} className="text-gray-400" /> {user.phone}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{user.department}</p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                    <span><span className="font-bold text-gray-900">{stats.openTasks}</span> tarefas</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-400" />
+                    <span><span className="font-bold text-gray-900">{stats.activeProjects}</span> projetos</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-400" />
+                    <span><span className="font-bold text-gray-900">{stats.doneTasks}</span> concluídas</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Detail Panel */}
+      {detail && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="absolute inset-0 bg-black/20" onClick={() => setDetail(null)} />
+          <div className="relative w-full max-w-sm bg-white h-full shadow-2xl overflow-y-auto z-10">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="font-bold text-gray-900">{detail.name}</h2>
+              <div className="flex gap-2">
+                <button onClick={() => { setModal({ ...detail }); setIsEditing(true); setDetail(null); }}
+                  className="text-sm px-3 py-1.5 rounded-lg bg-black text-yellow-400 font-bold hover:bg-gray-800">Editar</button>
+                <button onClick={() => setDetail(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><X size={15} /></button>
+              </div>
+            </div>
+            <div className="p-5 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className={cn("w-16 h-16 rounded-2xl flex items-center justify-center", ROLE_ICON_BG[detail.role])}>
+                  <span className={cn("font-black text-xl", detail.role === "admin" ? "text-black" : "text-white")}>{getInitials(detail.name)}</span>
+                </div>
+                <div>
+                  <p className="font-black text-gray-900">{detail.name}</p>
+                  <p className="text-sm text-gray-500">{detail.position}</p>
+                  <span className={cn("text-xs px-2 py-0.5 rounded-full border font-semibold mt-1 inline-block", ROLE_COLORS[detail.role])}>
+                    {ROLE_LABELS[detail.role]}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contato</p>
+                <div className="flex items-center gap-2 text-sm text-gray-700"><Mail size={14} className="text-gray-400" />{detail.email}</div>
+                {detail.phone && <div className="flex items-center gap-2 text-sm text-gray-700"><Phone size={14} className="text-gray-400" />{detail.phone}</div>}
+              </div>
+
+              {(() => {
+                const stats = getUserStats(detail.id);
+                return (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-yellow-50 rounded-xl p-3 text-center">
+                      <p className="text-xl font-black text-gray-900">{stats.openTasks}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Tarefas abertas</p>
+                    </div>
+                    <div className="bg-blue-50 rounded-xl p-3 text-center">
+                      <p className="text-xl font-black text-gray-900">{stats.activeProjects}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Projetos ativos</p>
+                    </div>
+                    <div className="bg-green-50 rounded-xl p-3 text-center">
+                      <p className="text-xl font-black text-gray-900">{stats.doneTasks}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Concluídas</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Tarefas Recentes</p>
+                <div className="space-y-2">
+                  {tasks.filter((t) => t.assigneeId === detail.id).slice(0, 5).map((task) => (
+                    <div key={task.id} className="flex items-center gap-2 p-2.5 bg-gray-50 rounded-lg">
+                      <span className={cn("w-2 h-2 rounded-full flex-shrink-0",
+                        task.status === "concluida" ? "bg-green-400" : task.priority === "urgente" ? "bg-red-400" : "bg-yellow-400"
+                      )} />
+                      <p className="text-xs text-gray-700 flex-1 truncate">{task.title}</p>
+                    </div>
+                  ))}
+                  {tasks.filter((t) => t.assigneeId === detail.id).length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-3">Nenhuma tarefa atribuída</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal */}
+      {modal !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-900">{isEditing ? "Editar Membro" : "Novo Membro"}</h3>
+              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Nome *</label>
+                <input value={modal.name ?? ""} onChange={(e) => setModal((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" placeholder="Nome completo" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Email *</label>
+                  <input value={modal.email ?? ""} onChange={(e) => setModal((p) => ({ ...p, email: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" placeholder="email@" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Telefone</label>
+                  <input value={modal.phone ?? ""} onChange={(e) => setModal((p) => ({ ...p, phone: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" placeholder="(11) 9..." />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Cargo</label>
+                  <input value={modal.position ?? ""} onChange={(e) => setModal((p) => ({ ...p, position: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" placeholder="Ex: Designer" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Departamento</label>
+                  <select value={modal.department ?? "Design"} onChange={(e) => setModal((p) => ({ ...p, department: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
+                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Papel</label>
+                  <select value={modal.role ?? "collaborator"} onChange={(e) => setModal((p) => ({ ...p, role: e.target.value as Role }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
+                    {(["admin", "leader", "collaborator"] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <input type="checkbox" id="active" checked={modal.active ?? true} onChange={(e) => setModal((p) => ({ ...p, active: e.target.checked }))}
+                    className="w-4 h-4 accent-yellow-400" />
+                  <label htmlFor="active" className="text-sm text-gray-700 font-medium">Membro ativo</label>
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex justify-between items-center">
+              {isEditing && (
+                <button onClick={() => { deleteUser(modal.id!); setModal(null); }}
+                  className="text-sm text-red-500 hover:text-red-700 font-medium">Excluir</button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button onClick={() => setModal(null)} className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100">Cancelar</button>
+                <button onClick={handleSave} className="px-4 py-2 text-sm font-bold bg-black text-yellow-400 rounded-lg hover:bg-gray-800 transition-colors">
+                  {isEditing ? "Salvar" : "Adicionar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-3">
+      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", color)}>{icon}</div>
+      <div>
+        <p className="text-xs text-gray-400 font-medium">{label}</p>
+        <p className="text-2xl font-black text-gray-900">{value}</p>
+      </div>
+    </div>
+  );
+}

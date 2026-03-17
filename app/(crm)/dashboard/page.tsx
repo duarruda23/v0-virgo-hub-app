@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import {
   TrendingUp, Users, FolderKanban, CheckSquare,
@@ -44,13 +44,18 @@ export default function DashboardPage() {
   const { deliveries } = useDeliveriesStore();
   const { users } = useUsersStore();
 
+  // Stable "now" — only set on client to avoid hydration mismatch
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => { setNow(new Date()); }, []);
+
   const activeClients = useMemo(() => clients.filter((c) => c.status === "ativo"), [clients]);
   const totalMRR = useMemo(() => activeClients.reduce((sum, c) => sum + c.mrr, 0), [activeClients]);
   const activeProjects = useMemo(() => projects.filter((p) => p.status === "em_execucao" || p.status === "revisao"), [projects]);
   const openTasks = useMemo(() => tasks.filter((t) => t.status !== "concluida"), [tasks]);
-  const overdueDeliveries = useMemo(() => deliveries.filter((d) => {
-    return d.status !== "entregue" && d.status !== "cancelado" && new Date(d.dueDate) < new Date();
-  }), [deliveries]);
+  const overdueDeliveries = useMemo(() => {
+    if (!now) return [];
+    return deliveries.filter((d) => d.status !== "entregue" && d.status !== "cancelado" && new Date(d.dueDate) < now);
+  }, [deliveries, now]);
   const hotLeads = useMemo(() => leads.filter((l) => l.status === "proposta" || l.status === "negociacao"), [leads]);
   const recentTasks = useMemo(() => tasks.filter((t) => t.status !== "concluida").slice(0, 5), [tasks]);
   const urgentDeliveries = useMemo(() => deliveries.filter((d) => d.status !== "entregue" && d.status !== "cancelado").slice(0, 4), [deliveries]);
@@ -184,7 +189,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {urgentDeliveries.map((delivery) => {
               const responsible = users.find((u) => u.id === delivery.responsibleId);
-              const isLate = new Date(delivery.dueDate) < new Date();
+                  const isLate = now ? new Date(delivery.dueDate) < now : false;
               return (
                 <div key={delivery.id} className="flex items-center gap-3">
                   <div className={cn("w-1.5 h-8 rounded-full flex-shrink-0", isLate ? "bg-red-400" : "bg-yellow-400")} />
@@ -270,7 +275,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
                     {task.dueDate && (
-                      <p className={cn("text-xs mt-0.5", new Date(task.dueDate) < new Date() ? "text-red-500 font-semibold" : "text-gray-400")}>
+                      <p className={cn("text-xs mt-0.5",                       (now && new Date(task.dueDate) < now) ? "text-red-500 font-semibold" : "text-gray-400")}>
                         Vence {formatDate(task.dueDate)}
                       </p>
                     )}

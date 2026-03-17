@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, X, Search, Calendar, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeliveriesStore, useProjectsStore, useUsersStore } from "@/lib/store";
@@ -33,6 +33,8 @@ export default function EntregasPage() {
   const [modal, setModal] = useState<Partial<Delivery> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [view, setView] = useState<"kanban" | "table">("kanban");
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => { setNow(new Date()); }, []);
 
   const filtered = useMemo(() => {
     let list = [...deliveries];
@@ -85,7 +87,7 @@ export default function EntregasPage() {
                   {cards.map((d) => {
                     const project = projects.find((p) => p.id === d.projectId);
                     const responsible = users.find((u) => u.id === d.responsibleId);
-                    const isLate = d.status !== "entregue" && new Date(d.dueDate) < new Date();
+                    const isLate = d.status !== "entregue" && now != null && new Date(d.dueDate) < now;
                     return (
                       <div key={d.id} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-all group">
                         <div className="flex items-start justify-between gap-1 mb-2">
@@ -145,7 +147,7 @@ export default function EntregasPage() {
               {filtered.map((d) => {
                 const project = projects.find((p) => p.id === d.projectId);
                 const responsible = users.find((u) => u.id === d.responsibleId);
-                const isLate = d.status !== "entregue" && d.status !== "cancelado" && new Date(d.dueDate) < new Date();
+                const isLate = d.status !== "entregue" && d.status !== "cancelado" && now != null && new Date(d.dueDate) < now;
                 return (
                   <tr key={d.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-gray-900">{d.title}</td>
