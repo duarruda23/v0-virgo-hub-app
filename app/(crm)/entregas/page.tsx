@@ -187,6 +187,7 @@ export default function EntregasPage() {
             </tbody>
           </table>
         </div>
+        </ClientOnly>
       )}
 
       {/* Modal */}

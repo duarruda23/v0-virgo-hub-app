@@ -5,6 +5,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: Role;
   avatar?: string;
   department?: string;
@@ -12,6 +13,7 @@ export interface User {
   phone?: string;
   active: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // ─── Clients ─────────────────────────────────────────────────────────────────

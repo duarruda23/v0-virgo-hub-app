@@ -11,7 +11,7 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
-  currentUser: MOCK_USERS[0], // default: admin
+  currentUser: null, // começa sem sessão — usuário deve fazer login
   login: (user) => set({ currentUser: user }),
   logout: () => set({ currentUser: null }),
 }));

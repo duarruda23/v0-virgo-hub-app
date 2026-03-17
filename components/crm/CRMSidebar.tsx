@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, UserCircle, FolderKanban,
   PackageSearch, CheckSquare, BarChart3, Settings,
-  Boxes, Truck, BookOpen, ChevronRight
+  Boxes, Truck, BookOpen, ChevronRight, LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -29,7 +29,13 @@ const BOTTOM_ITEMS = [
 
 export function CRMSidebar() {
   const pathname = usePathname();
-  const { currentUser } = useAuthStore();
+  const router = useRouter();
+  const { currentUser, logout } = useAuthStore();
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
 
   return (
     <aside className="w-64 flex-shrink-0 bg-black flex flex-col h-full">
@@ -101,6 +107,13 @@ export function CRMSidebar() {
               <p className="text-white text-xs font-semibold truncate">{currentUser.name}</p>
               <p className="text-white/40 text-xs capitalize">{currentUser.role}</p>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Sair da conta"
+              className="text-white/40 hover:text-red-400 transition-colors p-1 rounded-md hover:bg-white/10"
+            >
+              <LogOut size={15} />
+            </button>
           </div>
         )}
       </div>

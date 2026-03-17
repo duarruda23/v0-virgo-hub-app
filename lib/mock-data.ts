@@ -1,24 +1,17 @@
 import type { User, Client, Lead, Project, Delivery, Task, Product, Notification } from "./types";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
-export const MOCK_USERS: User[] = [
-  { id: "u1", name: "Ana Lima", email: "ana@virgohub.com", role: "admin", avatar: "", department: "Gestão", position: "CEO", phone: "(11) 99999-0001", active: true, createdAt: "2024-01-10" },
-  { id: "u2", name: "Bruno Carvalho", email: "bruno@virgohub.com", role: "leader", avatar: "", department: "Tráfego Pago", position: "Líder de Performance", phone: "(11) 99999-0002", active: true, createdAt: "2024-01-15" },
-  { id: "u3", name: "Carla Mendes", email: "carla@virgohub.com", role: "collaborator", avatar: "", department: "Design", position: "Designer Senior", phone: "(11) 99999-0003", active: true, createdAt: "2024-02-01" },
-  { id: "u4", name: "Diego Souza", email: "diego@virgohub.com", role: "collaborator", avatar: "", department: "Conteúdo", position: "Redator", phone: "(11) 99999-0004", active: true, createdAt: "2024-02-10" },
-  { id: "u5", name: "Elena Farias", email: "elena@virgohub.com", role: "leader", avatar: "", department: "Social Media", position: "Líder de Social", phone: "(11) 99999-0005", active: true, createdAt: "2024-03-01" },
-  { id: "u6", name: "Fábio Torres", email: "fabio@virgohub.com", role: "collaborator", avatar: "", department: "Design", position: "Motion Designer", phone: "(11) 99999-0006", active: false, createdAt: "2024-03-15" },
-];
+// Vazio por padrão — o primeiro cadastro via /login será o admin
+export const MOCK_USERS: User[] = [];
 
-// ─── Clients ─────────────────────────────────────────────────────────────────
-export const MOCK_CLIENTS: Client[] = [
-  { id: "c1", name: "Rafael Oliveira", email: "rafael@techsolve.com.br", phone: "(11) 98765-4321", company: "TechSolve", cnpj: "12.345.678/0001-90", website: "techsolve.com.br", status: "ativo", tier: "premium", segment: "Tecnologia", responsibleId: "u1", city: "São Paulo", notes: "Cliente estratégico — expansão para novos mercados em 2025.", tags: ["tech", "b2b"], mrr: 8500, createdAt: "2024-01-20", updatedAt: "2025-01-05" },
-  { id: "c2", name: "Mariana Costa", email: "mariana@beautystore.com.br", phone: "(21) 97654-3210", company: "Beauty Store", cnpj: "23.456.789/0001-01", website: "beautystore.com.br", status: "ativo", tier: "standard", segment: "E-commerce", responsibleId: "u2", city: "Rio de Janeiro", notes: "Focada em campanhas de performance no Meta Ads.", tags: ["ecommerce", "beauty"], mrr: 4200, createdAt: "2024-02-14", updatedAt: "2025-02-01" },
-  { id: "c3", name: "Carlos Neto", email: "carlos@construmax.com.br", phone: "(31) 96543-2109", company: "ConstruMax", cnpj: "34.567.890/0001-12", website: "construmax.com.br", status: "ativo", tier: "enterprise", segment: "Construção Civil", responsibleId: "u1", city: "Belo Horizonte", notes: "Maior cliente da carteira — contrato anual.", tags: ["construcao", "b2b"], mrr: 15000, createdAt: "2023-11-01", updatedAt: "2025-03-01" },
-  { id: "c4", name: "Fernanda Reis", email: "fernanda@clinicavida.com.br", phone: "(41) 95432-1098", company: "Clínica Vida", cnpj: "45.678.901/0001-23", status: "ativo", tier: "standard", segment: "Saúde", responsibleId: "u5", city: "Curitiba", notes: "Foco em Google Ads e SEO local.", tags: ["saude", "local"], mrr: 3800, createdAt: "2024-04-10", updatedAt: "2025-01-20" },
-  { id: "c5", name: "Pedro Alves", email: "pedro@fitnesswow.com.br", phone: "(51) 94321-0987", company: "FitnessWow", cnpj: "56.789.012/0001-34", status: "inativo", tier: "basic", segment: "Fitness", responsibleId: "u2", city: "Porto Alegre", notes: "Contrato pausado por sazonalidade.", tags: ["fitness"], mrr: 0, createdAt: "2024-05-01", updatedAt: "2024-12-01" },
-  { id: "c6", name: "Júlia Monteiro", email: "julia@modajulia.com.br", phone: "(11) 93210-9876", company: "Moda Julia", cnpj: "67.890.123/0001-45", status: "prospecto", tier: "basic", segment: "Moda", responsibleId: "u5", city: "São Paulo", notes: "Aguardando proposta final.", tags: ["moda", "instagram"], mrr: 0, createdAt: "2025-01-15", updatedAt: "2025-03-10" },
-];
+// ─── Clients, Leads, Projects, Deliveries, Tasks, Notifications ──────────────
+// Todos vazios — dados são criados pelo usuário no CRM
+export const MOCK_CLIENTS: Client[] = [];
+export const MOCK_LEADS: Lead[] = [];
+export const MOCK_PROJECTS: Project[] = [];
+export const MOCK_DELIVERIES: Delivery[] = [];
+export const MOCK_TASKS: Task[] = [];
+export const MOCK_NOTIFICATIONS: Notification[] = [];
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
 export const MOCK_LEADS: Lead[] = [
