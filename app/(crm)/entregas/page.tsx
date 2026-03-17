@@ -101,8 +101,8 @@ export default function EntregasPage() {
                         {project && <p className="text-[10px] text-gray-500 truncate bg-gray-50 rounded px-1.5 py-0.5 mb-2">{project.name}</p>}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
-                            <Calendar size={9} className={cn(isLate ? "text-red-500" : "text-gray-400")} />
-                            <span className={cn("text-[10px]", isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span>
+                            <Calendar suppressHydrationWarning size={9} className={cn(isLate ? "text-red-500" : "text-gray-400")} />
+                            <span suppressHydrationWarning className={cn("text-[10px]", isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span>
                           </div>
                           {responsible && (
                             <div className="w-5 h-5 rounded-full bg-gray-900 flex items-center justify-center" title={responsible.name}>
@@ -163,7 +163,7 @@ export default function EntregasPage() {
                         {ALL_STATUSES.map((s) => <option key={s} value={s}>{DELIVERY_STATUS_LABELS[s]}</option>)}
                       </select>
                     </td>
-                    <td className="px-4 py-3 text-xs"><span className={cn(isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span></td>
+                    <td className="px-4 py-3 text-xs"><span suppressHydrationWarning className={cn(isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span></td>
                     <td className="px-4 py-3">
                       {responsible && (
                         <div className="flex items-center gap-1.5">

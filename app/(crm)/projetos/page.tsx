@@ -137,7 +137,7 @@ export default function ProjetosPage() {
                 <div className="flex items-center justify-between text-xs text-gray-400">
                   <div className="flex items-center gap-1">
                     <Calendar size={11} />
-                    <span className={cn(isLate && "text-red-500 font-semibold")}>{formatDate(project.dueDate)}</span>
+                    <span suppressHydrationWarning className={cn(isLate && "text-red-500 font-semibold")}>{formatDate(project.dueDate)}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Users size={11} />
@@ -195,7 +195,7 @@ export default function ProjetosPage() {
                         <span className="text-xs font-bold text-gray-600">{project.progress}%</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs"><span className={cn(isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(project.dueDate)}</span></td>
+                    <td className="px-4 py-3 text-xs"><span suppressHydrationWarning className={cn(isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(project.dueDate)}</span></td>
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700">{project.budget ? formatCurrency(project.budget) : "—"}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>

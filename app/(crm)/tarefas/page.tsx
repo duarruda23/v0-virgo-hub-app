@@ -157,8 +157,8 @@ export default function TarefasPage() {
 
                       {task.dueDate && (
                         <div className="flex items-center gap-1 mb-2">
-                          <Calendar size={9} className={isLate ? "text-red-400" : "text-gray-400"} />
-                          <span className={cn("text-[10px]", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
+                          <Calendar suppressHydrationWarning size={9} className={isLate ? "text-red-400" : "text-gray-400"} />
+                          <span suppressHydrationWarning className={cn("text-[10px]", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
                             {formatDate(task.dueDate)}
                           </span>
                         </div>

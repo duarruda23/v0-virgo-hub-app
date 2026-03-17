@@ -192,12 +192,12 @@ export default function DashboardPage() {
                   const isLate = now ? new Date(delivery.dueDate) < now : false;
               return (
                 <div key={delivery.id} className="flex items-center gap-3">
-                  <div className={cn("w-1.5 h-8 rounded-full flex-shrink-0", isLate ? "bg-red-400" : "bg-yellow-400")} />
+                  <div suppressHydrationWarning className={cn("w-1.5 h-8 rounded-full flex-shrink-0", isLate ? "bg-red-400" : "bg-yellow-400")} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{delivery.title}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <Clock size={10} className="text-gray-400" />
-                      <p className={cn("text-xs", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
+                      <p suppressHydrationWarning className={cn("text-xs", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
                         {formatDate(delivery.dueDate)}
                       </p>
                     </div>
@@ -275,7 +275,7 @@ export default function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
                     {task.dueDate && (
-                      <p className={cn("text-xs mt-0.5",                       (now && new Date(task.dueDate) < now) ? "text-red-500 font-semibold" : "text-gray-400")}>
+                      <p suppressHydrationWarning className={cn("text-xs mt-0.5", (now && new Date(task.dueDate) < now) ? "text-red-500 font-semibold" : "text-gray-400")}>
                         Vence {formatDate(task.dueDate)}
                       </p>
                     )}
