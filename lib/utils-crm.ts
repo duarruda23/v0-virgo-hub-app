@@ -132,17 +132,22 @@ export function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
+/**
+ * Formata uma data ISO (YYYY-MM-DD...) como DD/MM/YYYY.
+ * Faz o parse manual da string para evitar qualquer dependência de
+ * toLocaleDateString / Intl / fuso horário — garante resultado idêntico
+ * no servidor (Node) e no cliente (browser), eliminando hydration mismatch.
+ */
 export function formatDate(date: string) {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  // Extrai os segmentos diretamente da string ISO sem instanciar Date
+  const [year, month, day] = date.split("T")[0].split("-");
+  if (!year || !month || !day) return date;
+  return `${day}/${month}/${year}`;
 }
 
 export function formatRelativeDate(date: string) {
   if (!date) return "—";
-  const diff = Math.floor((new Date().getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
-  if (diff === 0) return "Hoje";
-  if (diff === 1) return "Ontem";
-  if (diff < 7) return `${diff} dias atrás`;
   return formatDate(date);
 }
 
