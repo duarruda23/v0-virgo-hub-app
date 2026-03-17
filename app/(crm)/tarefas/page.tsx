@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
+import { ClientOnly } from "@/components/crm/ClientOnly";
 import { Plus, X, Search, Calendar, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTasksStore, useUsersStore, useProjectsStore } from "@/lib/store";
@@ -35,8 +36,6 @@ export default function TarefasPage() {
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null);
   const [modal, setModal] = useState<Partial<Task> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => { setNow(new Date()); }, []);
   const dragItem = useRef<string | null>(null);
 
   const filtered = useMemo(() => tasks.filter((t) => {
@@ -131,7 +130,7 @@ export default function TarefasPage() {
               <div className="flex-1 overflow-y-auto px-2 py-1 space-y-2 min-h-[80px]">
                 {colTasks.map((task) => {
                   const assignee = users.find((u) => u.id === task.assigneeId);
-                  const isLate = task.dueDate && now && new Date(task.dueDate) < now && task.status !== "concluida";
+                  const isLate = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "concluida";
                   return (
                     <div
                       key={task.id}

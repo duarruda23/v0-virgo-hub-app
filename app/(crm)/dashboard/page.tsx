@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   TrendingUp, Users, FolderKanban, CheckSquare,
@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { useClientsStore, useCRMStore, useProjectsStore, useTasksStore, useDeliveriesStore, useUsersStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ClientOnly } from "@/components/crm/ClientOnly";
 import {
   formatCurrency, formatDate,
   LEAD_STATUS_LABELS, LEAD_STATUS_COLORS,
@@ -44,18 +45,13 @@ export default function DashboardPage() {
   const { deliveries } = useDeliveriesStore();
   const { users } = useUsersStore();
 
-  // Stable "now" — only set on client to avoid hydration mismatch
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => { setNow(new Date()); }, []);
-
   const activeClients = useMemo(() => clients.filter((c) => c.status === "ativo"), [clients]);
   const totalMRR = useMemo(() => activeClients.reduce((sum, c) => sum + c.mrr, 0), [activeClients]);
   const activeProjects = useMemo(() => projects.filter((p) => p.status === "em_execucao" || p.status === "revisao"), [projects]);
   const openTasks = useMemo(() => tasks.filter((t) => t.status !== "concluida"), [tasks]);
-  const overdueDeliveries = useMemo(() => {
-    if (!now) return [];
-    return deliveries.filter((d) => d.status !== "entregue" && d.status !== "cancelado" && new Date(d.dueDate) < now);
-  }, [deliveries, now]);
+  const overdueDeliveries = useMemo(() =>
+    deliveries.filter((d) => d.status !== "entregue" && d.status !== "cancelado"),
+  [deliveries]);
   const hotLeads = useMemo(() => leads.filter((l) => l.status === "proposta" || l.status === "negociacao"), [leads]);
   const recentTasks = useMemo(() => tasks.filter((t) => t.status !== "concluida").slice(0, 5), [tasks]);
   const urgentDeliveries = useMemo(() => deliveries.filter((d) => d.status !== "entregue" && d.status !== "cancelado").slice(0, 4), [deliveries]);
@@ -186,36 +182,38 @@ export default function DashboardPage() {
               Ver todas <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="space-y-3">
-            {urgentDeliveries.map((delivery) => {
-              const responsible = users.find((u) => u.id === delivery.responsibleId);
-                  const isLate = now ? new Date(delivery.dueDate) < now : false;
-              return (
-                <div key={delivery.id} className="flex items-center gap-3">
-                  <div suppressHydrationWarning className={cn("w-1.5 h-8 rounded-full flex-shrink-0", isLate ? "bg-red-400" : "bg-yellow-400")} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{delivery.title}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Clock size={10} className="text-gray-400" />
-                      <p suppressHydrationWarning className={cn("text-xs", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
-                        {formatDate(delivery.dueDate)}
-                      </p>
+          <ClientOnly fallback={<div className="space-y-3">{urgentDeliveries.map(d => <div key={d.id} className="h-10 bg-gray-50 rounded animate-pulse" />)}</div>}>
+            <div className="space-y-3">
+              {urgentDeliveries.map((delivery) => {
+                const responsible = users.find((u) => u.id === delivery.responsibleId);
+                const isLate = new Date(delivery.dueDate) < new Date();
+                return (
+                  <div key={delivery.id} className="flex items-center gap-3">
+                    <div className={cn("w-1.5 h-8 rounded-full flex-shrink-0", isLate ? "bg-red-400" : "bg-yellow-400")} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{delivery.title}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Clock size={10} className="text-gray-400" />
+                        <p className={cn("text-xs", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
+                          {formatDate(delivery.dueDate)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DELIVERY_STATUS_COLORS[delivery.status])}>
+                        {DELIVERY_STATUS_LABELS[delivery.status]}
+                      </span>
+                      {responsible && (
+                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title={responsible.name}>
+                          <span className="text-[9px] font-bold text-gray-600">{getInitials(responsible.name)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium", DELIVERY_STATUS_COLORS[delivery.status])}>
-                      {DELIVERY_STATUS_LABELS[delivery.status]}
-                    </span>
-                    {responsible && (
-                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center" title={responsible.name}>
-                        <span className="text-[9px] font-bold text-gray-600">{getInitials(responsible.name)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </ClientOnly>
         </div>
       </div>
 
@@ -260,38 +258,41 @@ export default function DashboardPage() {
               Ver todas <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="space-y-2.5">
-            {recentTasks.map((task) => {
-              const assignee = users.find((u) => u.id === task.assigneeId);
-              return (
-                <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full flex-shrink-0",
-                    task.priority === "urgente" && "bg-red-500",
-                    task.priority === "alta" && "bg-orange-500",
-                    task.priority === "media" && "bg-blue-500",
-                    task.priority === "baixa" && "bg-gray-400",
-                  )} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
-                    {task.dueDate && (
-                      <p suppressHydrationWarning className={cn("text-xs mt-0.5", (now && new Date(task.dueDate) < now) ? "text-red-500 font-semibold" : "text-gray-400")}>
-                        Vence {formatDate(task.dueDate)}
-                      </p>
+          <ClientOnly fallback={<div className="space-y-2.5">{recentTasks.map(t => <div key={t.id} className="h-10 bg-gray-50 rounded animate-pulse" />)}</div>}>
+            <div className="space-y-2.5">
+              {recentTasks.map((task) => {
+                const assignee = users.find((u) => u.id === task.assigneeId);
+                const isLate = task.dueDate && new Date(task.dueDate) < new Date();
+                return (
+                  <div key={task.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      task.priority === "urgente" && "bg-red-500",
+                      task.priority === "alta" && "bg-orange-500",
+                      task.priority === "media" && "bg-blue-500",
+                      task.priority === "baixa" && "bg-gray-400",
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{task.title}</p>
+                      {task.dueDate && (
+                        <p className={cn("text-xs mt-0.5", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
+                          Vence {formatDate(task.dueDate)}
+                        </p>
+                      )}
+                    </div>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0", PRIORITY_COLORS[task.priority])}>
+                      {PRIORITY_LABELS[task.priority]}
+                    </span>
+                    {assignee && (
+                      <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0" title={assignee.name}>
+                        <span className="text-[9px] font-bold text-yellow-400">{getInitials(assignee.name)}</span>
+                      </div>
                     )}
                   </div>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full border font-medium flex-shrink-0", PRIORITY_COLORS[task.priority])}>
-                    {PRIORITY_LABELS[task.priority]}
-                  </span>
-                  {assignee && (
-                    <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center flex-shrink-0" title={assignee.name}>
-                      <span className="text-[9px] font-bold text-yellow-400">{getInitials(assignee.name)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </ClientOnly>
         </div>
       </div>
     </div>

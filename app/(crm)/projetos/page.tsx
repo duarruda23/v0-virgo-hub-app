@@ -1,5 +1,6 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { ClientOnly } from "@/components/crm/ClientOnly";
 import { Plus, X, Search, Calendar, Users, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useProjectsStore, useClientsStore, useUsersStore } from "@/lib/store";
@@ -30,8 +31,6 @@ export default function ProjetosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [detail, setDetail] = useState<Project | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => { setNow(new Date()); }, []);
 
   const filtered = useMemo(() => {
     let list = [...projects];
@@ -100,7 +99,7 @@ export default function ProjetosPage() {
           {filtered.map((project) => {
             const client = clients.find((c) => c.id === project.clientId);
             const manager = users.find((u) => u.id === project.managerId);
-            const isLate = project.status !== "concluido" && project.status !== "cancelado" && now != null && new Date(project.dueDate) < now;
+            const isLate = project.status !== "concluido" && project.status !== "cancelado" && new Date(project.dueDate) < new Date();
             return (
               <div key={project.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-all cursor-pointer group" onClick={() => setDetail(project)}>
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -183,7 +182,7 @@ export default function ProjetosPage() {
             <tbody className="divide-y divide-gray-50">
               {filtered.map((project) => {
                 const client = clients.find((c) => c.id === project.clientId);
-                const isLate = project.status !== "concluido" && now != null && new Date(project.dueDate) < now;
+                const isLate = project.status !== "concluido" && new Date(project.dueDate) < new Date();
                 return (
                   <tr key={project.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(project)}>
                     <td className="px-4 py-3 font-semibold text-gray-900">{project.name}</td>
