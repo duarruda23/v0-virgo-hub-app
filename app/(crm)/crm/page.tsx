@@ -710,8 +710,8 @@ export default function CRMPage() {
       <div className="flex gap-3 overflow-x-auto pb-3 flex-1" style={{ minHeight: 0 }}>
         {sortedStages.map((stage) => {
           const stageLeads = getStageLeads(stage.id);
-          const stageValue = stageLeads.reduce((s, l) => s + l.value, 0);
-          const automationCount = getAutomations(stage.id).filter((a) => a.active).length;
+          const stageValue = stageLeads.reduce((sum, l) => sum + l.value, 0);
+          const automationCount = allAutomations.filter((a) => a.stageId === stage.id && a.active).length;
           return (
             <div
               key={stage.id}
