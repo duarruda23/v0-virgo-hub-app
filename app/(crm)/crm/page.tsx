@@ -288,7 +288,7 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
 
 // ─── Pipeline Config Modal ────────────────────────────────────────────────────
 function PipelineConfigModal({ onClose, defaultTab = "stages" }: { onClose: () => void; defaultTab?: "stages" | "automations" }) {
-  const { stages, addStage, updateStage, deleteStage, reorderStages } = usePipelineStore();
+  const { stages, setStages } = usePipelineStore();
   const [tab, setTab] = useState<"stages" | "automations">(defaultTab);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(() => {
     const seen = new Set<string>();
@@ -354,10 +354,7 @@ function PipelineConfigModal({ onClose, defaultTab = "stages" }: { onClose: () =
   }
 
   function handleSave() {
-    // reorderStages substitui o array inteiro — não chamar addStage/updateStage
-    // separadamente para evitar chaves duplicadas
-    const withOrder = localStages.map((s, i) => ({ ...s, order: i }));
-    reorderStages(withOrder);
+    setStages(localStages.map((s, i) => ({ ...s, order: i })));
     onClose();
   }
 
