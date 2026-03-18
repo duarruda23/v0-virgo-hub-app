@@ -166,7 +166,7 @@ export const useUsersStore = create<UsersStore>()(
   )
 );
 
-// ─── Pipeline Store ────────────────────────────────────────��──────────────────
+// ─── Pipeline Store ────────────────────────────────────────���──────────────────
 export interface PipelineStage {
   id: string;
   label: string;
@@ -195,12 +195,41 @@ export const usePipelineStore = create<PipelineStore>()(
   persist(
     (set) => ({
       stages: DEFAULT_PIPELINE_STAGES,
-      addStage: (stage) => set((s) => ({ stages: [...s.stages, stage] })),
+      addStage: (stage) => set((s) => ({
+        // evita duplicatas: só adiciona se o id ainda não existir
+        stages: s.stages.find((st) => st.id === stage.id) ? s.stages : [...s.stages, stage],
+      })),
       updateStage: (id, data) => set((s) => ({ stages: s.stages.map((st) => st.id === id ? { ...st, ...data } : st) })),
       deleteStage: (id) => set((s) => ({ stages: s.stages.filter((st) => st.id !== id) })),
-      reorderStages: (stages) => set({ stages }),
+      reorderStages: (stages) => {
+        // deduplicar por id antes de salvar
+        const seen = new Set<string>();
+        const deduped = stages.filter((s) => {
+          if (seen.has(s.id)) return false;
+          seen.add(s.id);
+          return true;
+        });
+        set({ stages: deduped });
+      },
     }),
-    { name: "virgo-pipeline" }
+    {
+      name: "virgo-pipeline",
+      // substitui em vez de fazer merge para evitar acúmulo com estado inicial
+      merge: (persisted, current) => {
+        const p = persisted as Partial<PipelineStore>;
+        if (p.stages && Array.isArray(p.stages) && p.stages.length > 0) {
+          // deduplicar o que veio do localStorage
+          const seen = new Set<string>();
+          const deduped = p.stages.filter((s: PipelineStage) => {
+            if (seen.has(s.id)) return false;
+            seen.add(s.id);
+            return true;
+          });
+          return { ...current, stages: deduped };
+        }
+        return current;
+      },
+    }
   )
 );
 

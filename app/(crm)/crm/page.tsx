@@ -352,16 +352,10 @@ function PipelineConfigModal({ onClose, defaultTab = "stages" }: { onClose: () =
   }
 
   function handleSave() {
+    // reorderStages substitui o array inteiro — não chamar addStage/updateStage
+    // separadamente para evitar chaves duplicadas
     const withOrder = localStages.map((s, i) => ({ ...s, order: i }));
     reorderStages(withOrder);
-    withOrder.forEach((s) => {
-      const exists = stages.find((st) => st.id === s.id);
-      if (!exists) addStage(s);
-      else updateStage(s.id, s);
-    });
-    stages.forEach((s) => {
-      if (!withOrder.find((ws) => ws.id === s.id)) deleteStage(s.id);
-    });
     onClose();
   }
 
