@@ -8,14 +8,31 @@ function dbToProject(r: Record<string, unknown>) {
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const b = await req.json();
+
+  // Sanitize: empty strings become null to avoid FK violations
+  const clientId = b.clientId && b.clientId.trim() !== "" ? b.clientId : null;
+  const managerId = b.managerId && b.managerId.trim() !== "" ? b.managerId : null;
+
+  let safeClientId: string | null = clientId;
+  if (clientId) {
+    const check = await sql`SELECT id FROM clients WHERE id = ${clientId} LIMIT 1`;
+    if (check.length === 0) safeClientId = null;
+  }
+
+  let safeManagerId: string | null = managerId;
+  if (managerId) {
+    const check = await sql`SELECT id FROM users WHERE id = ${managerId} LIMIT 1`;
+    if (check.length === 0) safeManagerId = null;
+  }
+
   const rows = await sql`
     UPDATE projects SET
       name         = COALESCE(${b.name ?? null}, name),
       description  = COALESCE(${b.description ?? null}, description),
-      client_id    = COALESCE(${b.clientId ?? null}, client_id),
+      client_id    = COALESCE(${safeClientId}, client_id),
       status       = COALESCE(${b.status ?? null}, status),
       priority     = COALESCE(${b.priority ?? null}, priority),
-      manager_id   = COALESCE(${b.managerId ?? null}, manager_id),
+      manager_id   = COALESCE(${safeManagerId}, manager_id),
       team_ids     = COALESCE(${b.teamIds ?? null}, team_ids),
       budget       = COALESCE(${b.budget ?? null}, budget),
       start_date   = COALESCE(${b.startDate ?? null}, start_date),

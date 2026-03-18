@@ -12,10 +12,28 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const b = await req.json();
+
+  // Sanitize: empty strings and placeholder IDs become null to avoid FK violations
+  const clientId = b.clientId && b.clientId.trim() !== "" ? b.clientId : null;
+  const managerId = b.managerId && b.managerId.trim() !== "" ? b.managerId : null;
+
+  // Verify clientId exists in clients table if provided
+  let safeClientId = clientId;
+  if (clientId) {
+    const check = await sql`SELECT id FROM clients WHERE id = ${clientId} LIMIT 1`;
+    if (check.length === 0) safeClientId = null;
+  }
+
+  let safeManagerId = managerId;
+  if (managerId) {
+    const check = await sql`SELECT id FROM users WHERE id = ${managerId} LIMIT 1`;
+    if (check.length === 0) safeManagerId = null;
+  }
+
   const rows = await sql`
     INSERT INTO projects (name, description, client_id, status, priority, manager_id, team_ids, budget, start_date, due_date, tags, progress)
-    VALUES (${b.name}, ${b.description ?? null}, ${b.clientId ?? null}, ${b.status ?? "briefing"}, ${b.priority ?? "media"},
-            ${b.managerId ?? null}, ${b.teamIds ?? []}, ${b.budget ?? null}, ${b.startDate}, ${b.dueDate}, ${b.tags ?? []}, ${b.progress ?? 0})
+    VALUES (${b.name}, ${b.description ?? null}, ${safeClientId}, ${b.status ?? "briefing"}, ${b.priority ?? "media"},
+            ${safeManagerId}, ${b.teamIds ?? []}, ${b.budget ?? null}, ${b.startDate ?? null}, ${b.dueDate ?? null}, ${b.tags ?? []}, ${b.progress ?? 0})
     RETURNING *
   `;
   return NextResponse.json(dbToProject(rows[0]), { status: 201 });

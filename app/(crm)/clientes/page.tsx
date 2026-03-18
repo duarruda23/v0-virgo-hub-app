@@ -11,7 +11,9 @@ import {
 
 const EMPTY: Omit<Client, "id" | "createdAt" | "updatedAt"> = {
   name: "", email: "", phone: "", company: "", cnpj: "", website: "",
-  status: "ativo", tier: "standard", segment: "", responsibleId: "u1",
+  tradeName: "", stateRegistration: "", municipalRegistration: "",
+  taxRegime: "", legalNature: "", foundingDate: "",
+  status: "ativo", tier: "standard", segment: "", responsibleId: "",
   city: "", notes: "", tags: [], mrr: 0,
 };
 
@@ -54,10 +56,14 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     if (!modal?.name || !modal?.email) return;
+    // Garante que responsibleId nunca é um ID inexistente
+    const responsibleId = modal.responsibleId && modal.responsibleId !== "u1"
+      ? modal.responsibleId
+      : (users[0]?.id ?? null);
     if (isEditing && modal.id) {
-      await updateClient(modal.id, modal);
+      await updateClient(modal.id, { ...modal, responsibleId: responsibleId ?? undefined });
     } else {
-      await createClient({ ...EMPTY, ...modal });
+      await createClient({ ...EMPTY, ...modal, responsibleId: responsibleId ?? "" });
     }
     setModal(null);
   };
@@ -110,7 +116,7 @@ export default function ClientesPage() {
           ))}
         </div>
         <button
-          onClick={() => { setModal({ ...EMPTY }); setIsEditing(false); }}
+          onClick={() => { setModal({ ...EMPTY, responsibleId: users[0]?.id ?? "" }); setIsEditing(false); }}
           className="ml-auto flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors"
         >
           <Plus size={15} /> Novo Cliente

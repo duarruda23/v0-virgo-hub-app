@@ -164,13 +164,15 @@ export default function ProjetosPage() {
 
   const handleSave = async () => {
     if (!modal?.name) return;
-    if (!modal?.clientId && clients.length > 0) modal.clientId = clients[0].id;
-    if (!modal?.managerId && users.length > 0) modal.managerId = users[0].id;
-    if (!modal?.clientId) return; // sem clientes cadastrados
+    // Garante IDs válidos — nunca envia "c1" ou "u1" hardcoded
+    const validClientId = clients.find((c) => c.id === modal.clientId)?.id ?? clients[0]?.id ?? null;
+    const validManagerId = users.find((u) => u.id === modal.managerId)?.id ?? users[0]?.id ?? null;
+    if (!validClientId) return; // nenhum cliente cadastrado ainda
+    const payload = { ...EMPTY, ...modal, clientId: validClientId, managerId: validManagerId ?? "" };
     if (isEditing && modal.id) {
-      await updateProject(modal.id, modal);
+      await updateProject(modal.id, payload);
     } else {
-      await createProject({ ...EMPTY, ...modal });
+      await createProject(payload);
     }
     setModal(null);
   };
