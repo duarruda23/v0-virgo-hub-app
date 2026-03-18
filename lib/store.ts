@@ -166,7 +166,7 @@ export const useUsersStore = create<UsersStore>()(
   )
 );
 
-// ─── Pipeline Store ────────────────────────────────────────���──────────────────
+// ─── Pipeline Store ────────────────────────────────────────����──────────────────
 export interface PipelineStage {
   id: string;
   label: string;
@@ -214,11 +214,8 @@ export const usePipelineStore = create<PipelineStore>()(
     }),
     {
       name: "virgo-pipeline",
-      version: 3, // incrementar reseta localStorage de versões antigas com duplicatas
-      migrate: (persisted) => {
-        // descarta estado antigo corrompido, volta ao padrão
-        return { stages: DEFAULT_PIPELINE_STAGES };
-      },
+      version: 4,
+      migrate: () => ({ stages: DEFAULT_PIPELINE_STAGES }),
       merge: (_persisted, current) => {
         // nunca fazer merge — sempre substituir com o que veio do localStorage
         const p = _persisted as Partial<PipelineStore>;

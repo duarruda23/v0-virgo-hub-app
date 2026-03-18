@@ -540,12 +540,10 @@ export default function CRMPage() {
   const { addTask } = useTasksStore();
   const { currentUser } = useAuthStore();
 
-  const sortedStages = useMemo(() => {
-    const seen = new Set<string>();
-    return [...stages]
-      .filter((s) => { if (seen.has(s.id)) return false; seen.add(s.id); return true; })
-      .sort((a, b) => a.order - b.order);
-  }, [stages]);
+  const seen = new Set<string>();
+  const sortedStages = [...stages]
+    .filter((s) => { if (seen.has(s.id)) return false; seen.add(s.id); return true; })
+    .sort((a, b) => a.order - b.order);
 
   const [search, setSearch] = useState("");
   const [dragging, setDragging] = useState<string | null>(null);
