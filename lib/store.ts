@@ -214,10 +214,9 @@ export const usePipelineStore = create<PipelineStore>()(
     }),
     {
       name: "virgo-pipeline",
-      version: 4,
+      version: 5,
       migrate: () => ({ stages: DEFAULT_PIPELINE_STAGES }),
       merge: (_persisted, current) => {
-        // nunca fazer merge — sempre substituir com o que veio do localStorage
         const p = _persisted as Partial<PipelineStore>;
         if (!p.stages || !Array.isArray(p.stages) || p.stages.length === 0) return current;
         const seen = new Set<string>();
@@ -227,6 +226,18 @@ export const usePipelineStore = create<PipelineStore>()(
           return true;
         });
         return { ...current, stages: deduped };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state?.stages) return;
+        const seen = new Set<string>();
+        const deduped = state.stages.filter((s: PipelineStage) => {
+          if (seen.has(s.id)) return false;
+          seen.add(s.id);
+          return true;
+        });
+        if (deduped.length !== state.stages.length) {
+          state.stages = deduped;
+        }
       },
     }
   )

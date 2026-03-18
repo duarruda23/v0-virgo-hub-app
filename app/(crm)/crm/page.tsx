@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   Plus, X, Phone, Mail, Building2, DollarSign, Calendar,
   Pencil, Trash2, Search, Settings2, GripVertical, Check,

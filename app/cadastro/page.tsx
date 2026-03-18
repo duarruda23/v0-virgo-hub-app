@@ -23,11 +23,16 @@ export default function CadastroPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  useEffect(() => {
-    if (mounted && currentUser) router.replace("/dashboard");
-  }, [mounted, currentUser, router]);
-
+  // Só redireciona automaticamente se não é primeiro acesso E não está logado
+  // (usuário logado pode acessar /cadastro para criar novos membros)
   const isFirstAccess = mounted && users.length === 0;
+
+  useEffect(() => {
+    if (!mounted) return;
+    // Sem usuários e sem sessão = primeiro acesso, fica na página
+    // Com usuários e sem sessão = vai para login
+    if (!isFirstAccess && !currentUser) router.replace("/login");
+  }, [mounted, isFirstAccess, currentUser, router]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
@@ -60,11 +65,14 @@ export default function CadastroPage() {
       updatedAt: new Date().toISOString(),
     };
     addUser(newUser);
-    login(newUser);
-    router.push("/dashboard");
+    if (!currentUser) {
+      // Primeiro acesso: loga como o novo usuário (admin)
+      login(newUser);
+    }
+    router.push(currentUser ? "/equipe" : "/dashboard");
   }
 
-  if (!mounted) {
+  if (!mounted || (!isFirstAccess && !currentUser)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-black border-t-yellow-400 rounded-full animate-spin" />
