@@ -16,7 +16,7 @@ function dbToAutomation(r: Record<string, unknown>) {
     type: "task" as const,
     titleTemplate: (r.title_template ?? "") as string,
     priority: (r.priority ?? "media") as string,
-    assigneeId: (r.assignee_id ?? "") as string,
+    assigneeId: (r.assignee_id ?? null) as string | null,
     dueValue: Number(r.due_value ?? 1),
     dueUnit: (r.due_unit ?? "dias") as string,
   };
@@ -32,26 +32,41 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(rows.map(dbToAutomation));
 }
 
-// POST /api/automations — cria novo gatilho
+// POST /api/automations
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { stageId, type, active = true } = body;
-  if (!stageId || !type) return NextResponse.json({ error: "stageId e type obrigatórios" }, { status: 400 });
+  if (!stageId || !type) {
+    return NextResponse.json({ error: "stageId e type obrigatórios" }, { status: 400 });
+  }
 
   const id = generateId("auto");
 
   if (type === "webhook") {
     const [row] = await sql`
       INSERT INTO stage_automations (id, stage_id, type, active, webhook_url, created_at)
-      VALUES (${id}, ${stageId}, 'webhook', ${active}, ${body.url ?? ""}, now())
+      VALUES (${id}, ${stageId}, 'webhook', ${active}, ${body.url ?? null}, now())
       RETURNING *
     `;
     return NextResponse.json(dbToAutomation(row), { status: 201 });
   }
 
+  // type === "task" — garantir que assignee_id seja NULL quando vazio
+  const assigneeId: string | null =
+    typeof body.assigneeId === "string" && body.assigneeId.trim() !== ""
+      ? body.assigneeId.trim()
+      : null;
+
+  const titleTemplate: string = body.titleTemplate ?? "Follow-up: {{lead_name}}";
+  const priority: string = body.priority ?? "media";
+  const dueValue: number = Number(body.dueValue ?? 1);
+  const dueUnit: string = body.dueUnit ?? "dias";
+
   const [row] = await sql`
-    INSERT INTO stage_automations (id, stage_id, type, active, title_template, priority, assignee_id, due_value, due_unit, created_at)
-    VALUES (${id}, ${stageId}, 'task', ${active}, ${body.titleTemplate ?? "Follow-up: {{lead_name}}"}, ${body.priority ?? "media"}, ${body.assigneeId ?? ""}, ${body.dueValue ?? 1}, ${body.dueUnit ?? "dias"}, now())
+    INSERT INTO stage_automations
+      (id, stage_id, type, active, title_template, priority, assignee_id, due_value, due_unit, created_at)
+    VALUES
+      (${id}, ${stageId}, 'task', ${active}, ${titleTemplate}, ${priority}, ${assigneeId}, ${dueValue}, ${dueUnit}, now())
     RETURNING *
   `;
   return NextResponse.json(dbToAutomation(row), { status: 201 });

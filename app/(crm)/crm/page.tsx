@@ -1,3 +1,4 @@
+// crm-page-v3
 "use client";
 import { useState, useRef } from "react";
 import {
@@ -710,9 +711,7 @@ export default function CRMPage() {
         {sortedStages.map((stage) => {
           const stageLeads = getStageLeads(stage.id);
           const stageValue = stageLeads.reduce((sum, l) => sum + l.value, 0);
-          const automationCount = Array.isArray(allAutomations)
-            ? allAutomations.filter((a) => a.stageId === stage.id && a.active).length
-            : 0;
+          const automationCount = allAutomations.filter((a) => a.stageId === stage.id && a.active).length;
           return (
             <div
               key={stage.id}

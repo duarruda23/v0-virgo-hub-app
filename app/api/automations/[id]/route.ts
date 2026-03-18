@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         active = ${body.active ?? current.active},
         title_template = ${body.titleTemplate ?? current.title_template},
         priority = ${body.priority ?? current.priority},
-        assignee_id = ${body.assigneeId ?? current.assignee_id},
+        assignee_id = ${(body.assigneeId !== undefined ? (body.assigneeId?.trim() !== "" ? body.assigneeId : null) : current.assignee_id)},
         due_value = ${body.dueValue ?? current.due_value},
         due_unit = ${body.dueUnit ?? current.due_unit}
       WHERE id = ${id}
