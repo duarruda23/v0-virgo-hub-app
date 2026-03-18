@@ -197,3 +197,55 @@ export async function markAllNotificationsRead(notifications: Notification[]) {
   await Promise.all(notifications.filter((n) => !n.read).map((n) => markNotificationRead(n.id)));
   mutate("/api/notifications");
 }
+
+// ─── Automations ──────────────────────────────────────────────────────────────
+export interface AutomationRecord {
+  id: string;
+  stageId: string;
+  type: "webhook" | "task";
+  active: boolean;
+  // webhook
+  url?: string;
+  // task
+  titleTemplate?: string;
+  priority?: string;
+  assigneeId?: string;
+  dueValue?: number;
+  dueUnit?: string;
+}
+
+export function useAutomations(stageId?: string) {
+  const key = stageId ? `/api/automations?stageId=${stageId}` : "/api/automations";
+  const { data, error, isLoading } = useSWR<AutomationRecord[]>(key, fetcher);
+  return { automations: data ?? [], error, isLoading };
+}
+
+export async function createAutomation(data: Omit<AutomationRecord, "id">) {
+  const res = await fetch("/api/automations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate(`/api/automations?stageId=${data.stageId}`);
+  mutate("/api/automations");
+  return json as AutomationRecord;
+}
+
+export async function updateAutomation(id: string, stageId: string, data: Partial<AutomationRecord>) {
+  const res = await fetch(`/api/automations/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate(`/api/automations?stageId=${stageId}`);
+  mutate("/api/automations");
+  return json;
+}
+
+export async function deleteAutomation(id: string, stageId: string) {
+  await fetch(`/api/automations/${id}`, { method: "DELETE" });
+  mutate(`/api/automations?stageId=${stageId}`);
+  mutate("/api/automations");
+}

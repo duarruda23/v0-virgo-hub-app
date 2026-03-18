@@ -6,9 +6,10 @@ import {
   Webhook, ListTodo, ChevronDown, ChevronRight, Zap, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePipelineStore, useAutomationStore, useAuthStore } from "@/lib/store";
-import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask } from "@/hooks/use-data";
-import type { PipelineStage, StageAutomation, WebhookAutomation, TaskAutomation } from "@/lib/store";
+import { usePipelineStore, useAuthStore } from "@/lib/store";
+import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask, useAutomations, createAutomation, updateAutomation, deleteAutomation, type AutomationRecord } from "@/hooks/use-data";
+import type { PipelineStage } from "@/lib/store";
+import type { Task } from "@/lib/types";
 import type { Lead, LeadSource, Task } from "@/lib/types";
 import { formatCurrency, formatDate, getInitials, generateId, TIME_UNIT_LABELS, formatDuration, calculateDueDate, type TimeUnit } from "@/lib/utils-crm";
 
@@ -45,42 +46,31 @@ function FormInput({ value, onChange, type = "text", placeholder }: {
 
 // ─── Automation Config Panel ─────────────────────────────────────────────────
 function AutomationPanel({ stage }: { stage: PipelineStage }) {
-  const { getAutomations, setAutomations } = useAutomationStore();
+  const { automations, isLoading } = useAutomations(stage.id);
   const { users } = useUsers();
-  const [automations, setLocal] = useState<StageAutomation[]>(getAutomations(stage.id));
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  function save(updated: StageAutomation[]) {
-    setLocal(updated);
-    setAutomations(stage.id, updated);
+  async function handleAddWebhook() {
+    const created = await createAutomation({ stageId: stage.id, type: "webhook", url: "", active: true });
+    setExpanded(created.id);
   }
 
-  function addWebhook() {
-    save([...automations, { type: "webhook", url: "", active: true }]);
-    setExpanded(automations.length);
-  }
-
-  function addTask() {
-    save([...automations, {
-      type: "task",
+  async function handleAddTask() {
+    const created = await createAutomation({
+      stageId: stage.id, type: "task",
       titleTemplate: "Follow-up: {{lead_name}}",
-      priority: "media",
-      assigneeId: "",
-      dueValue: 1,
-      dueUnit: "dias" as TimeUnit,
-      active: true,
-    }]);
-    setExpanded(automations.length);
+      priority: "media", assigneeId: "", dueValue: 1, dueUnit: "dias", active: true,
+    });
+    setExpanded(created.id);
   }
 
-  function remove(i: number) {
-    save(automations.filter((_, idx) => idx !== i));
+  async function handleRemove(a: AutomationRecord) {
+    await deleteAutomation(a.id, stage.id);
     setExpanded(null);
   }
 
-  function update(i: number, data: Partial<StageAutomation>) {
-    const updated = automations.map((a, idx) => idx === i ? { ...a, ...data } : a);
-    save(updated as StageAutomation[]);
+  async function handleUpdate(a: AutomationRecord, data: Partial<AutomationRecord>) {
+    await updateAutomation(a.id, stage.id, data);
   }
 
   const webhookCount = automations.filter((a) => a.type === "webhook").length;
@@ -101,90 +91,67 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
 
       {/* Botões adicionar */}
       <div className="flex gap-2">
-        <button
-          onClick={addWebhook}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold border-2 border-dashed border-blue-200 text-blue-500 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition-all"
-        >
+        <button onClick={handleAddWebhook}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold border-2 border-dashed border-blue-200 text-blue-500 rounded-xl hover:bg-blue-50 hover:border-blue-400 transition-all">
           <Webhook size={12} /> + Webhook
         </button>
-        <button
-          onClick={addTask}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold border-2 border-dashed border-purple-200 text-purple-500 rounded-xl hover:bg-purple-50 hover:border-purple-400 transition-all"
-        >
+        <button onClick={handleAddTask}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold border-2 border-dashed border-purple-200 text-purple-500 rounded-xl hover:bg-purple-50 hover:border-purple-400 transition-all">
           <ListTodo size={12} /> + Criar Tarefa
         </button>
       </div>
 
       {/* Lista de gatilhos */}
-      {automations.length === 0 && (
+      {isLoading && <p className="text-xs text-gray-400 text-center py-2">Carregando...</p>}
+      {!isLoading && automations.length === 0 && (
         <p className="text-xs text-gray-400 text-center py-2">Nenhum gatilho configurado para esta etapa.</p>
       )}
-      {automations.map((automation, i) => (
-        <div key={i} className={cn(
+      {automations.map((automation) => (
+        <div key={automation.id} className={cn(
           "border rounded-xl overflow-hidden transition-all",
           automation.type === "webhook" ? "border-blue-200 bg-blue-50/50" : "border-purple-200 bg-purple-50/50"
         )}>
           {/* Header do gatilho */}
           <div className="flex items-center gap-2 px-3 py-2.5">
             <div className={cn("p-1 rounded-md", automation.type === "webhook" ? "bg-blue-100" : "bg-purple-100")}>
-              {automation.type === "webhook"
-                ? <Webhook size={11} className="text-blue-600" />
-                : <ListTodo size={11} className="text-purple-600" />
-              }
+              {automation.type === "webhook" ? <Webhook size={11} className="text-blue-600" /> : <ListTodo size={11} className="text-purple-600" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-gray-800">
-                {automation.type === "webhook" ? "Disparar Webhook" : "Criar Tarefa"}
-              </p>
+              <p className="text-xs font-bold text-gray-800">{automation.type === "webhook" ? "Disparar Webhook" : "Criar Tarefa"}</p>
               <p className="text-[10px] text-gray-400 truncate">
                 {automation.type === "webhook"
-                  ? ((automation as WebhookAutomation).url || "URL não configurada")
-                  : (() => {
-                      const ta = automation as TaskAutomation;
-                      return `"${ta.titleTemplate}" · +${formatDuration(ta.dueValue, ta.dueUnit)}`;
-                    })()
-                }
+                  ? (automation.url || "URL não configurada")
+                  : `"${automation.titleTemplate}" · +${formatDuration(automation.dueValue, automation.dueUnit as TimeUnit)}`}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
-              {/* Toggle ativo */}
               <button
-                onClick={() => update(i, { active: !automation.active })}
-                className={cn(
-                  "w-8 h-4 rounded-full transition-colors relative",
-                  automation.active ? "bg-green-400" : "bg-gray-200"
-                )}
-              >
-                <div className={cn(
-                  "absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all",
-                  automation.active ? "left-[18px]" : "left-0.5"
-                )} />
+                title={automation.active ? "Desativar" : "Ativar"}
+                onClick={() => handleUpdate(automation, { active: !automation.active })}
+                className={cn("w-8 h-4 rounded-full transition-colors relative", automation.active ? "bg-green-400" : "bg-gray-200")}>
+                <div className={cn("absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all", automation.active ? "left-[18px]" : "left-0.5")} />
               </button>
-              <button onClick={() => setExpanded(expanded === i ? null : i)} className="p-1 hover:bg-white rounded-md text-gray-400">
-                {expanded === i ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <button onClick={() => setExpanded(expanded === automation.id ? null : automation.id)} className="p-1 hover:bg-white rounded-md text-gray-400">
+                {expanded === automation.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
               </button>
-              <button onClick={() => remove(i)} className="p-1 hover:bg-red-100 rounded-md text-gray-400 hover:text-red-500">
+              <button onClick={() => handleRemove(automation)} className="p-1 hover:bg-red-100 rounded-md text-gray-400 hover:text-red-500">
                 <Trash2 size={12} />
               </button>
             </div>
           </div>
 
           {/* Corpo expandido */}
-          {expanded === i && (
+          {expanded === automation.id && (
             <div className="border-t border-inherit px-3 pb-3 pt-2.5 space-y-3 bg-white/60">
               {automation.type === "webhook" && (
                 <>
                   <div>
                     <FormLabel>URL do Webhook</FormLabel>
-                    <input
-                      type="url"
-                      value={(automation as WebhookAutomation).url}
-                      onChange={(e) => update(i, { url: e.target.value })}
+                    <input type="url" value={automation.url ?? ""}
+                      onChange={(e) => handleUpdate(automation, { url: e.target.value })}
                       placeholder="https://hooks.zapier.com/..."
-                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 font-mono"
-                    />
+                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 font-mono" />
                   </div>
-                  {/* Payload preview */}
                   <div>
                     <div className="flex items-center gap-1.5 mb-1">
                       <Eye size={10} className="text-gray-400" />
@@ -195,30 +162,32 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
   "stage_id": "${stage.id}",
   "stage_label": "${stage.label}",
   "lead": {
-    "id": "{{lead_id}}",
-    "name": "{{lead_name}}",
-    "email": "{{lead_email}}",
-    "phone": "{{lead_phone}}",
-    "company": "{{lead_company}}",
-    "value": {{lead_value}},
-    "source": "{{lead_source}}"
+    "id": "...", "name": "...", "email": "...",
+    "phone": "...", "company": "...",
+    "value": 0, "source": "...",
+    "tags": [], "notes": "...",
+    "next_follow_up": "..."
   },
-  "timestamp": "{{iso_timestamp}}"
+  "client": {
+    "cnpj": "...", "trade_name": "...",
+    "state_registration": "...",
+    "municipal_registration": "...",
+    "tax_regime": "...", "legal_nature": "...",
+    "founding_date": "..."
+  },
+  "timestamp": "2025-01-01T00:00:00Z"
 }`}</pre>
                   </div>
                 </>
               )}
-
               {automation.type === "task" && (
                 <>
                   <div>
                     <FormLabel>Título da tarefa</FormLabel>
-                    <input
-                      value={(automation as TaskAutomation).titleTemplate}
-                      onChange={(e) => update(i, { titleTemplate: e.target.value })}
+                    <input value={automation.titleTemplate ?? ""}
+                      onChange={(e) => handleUpdate(automation, { titleTemplate: e.target.value })}
                       placeholder="Follow-up: {{lead_name}}"
-                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
-                    />
+                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400" />
                     <p className="text-[10px] text-gray-400 mt-1">
                       Variáveis: <code className="bg-gray-100 px-1 rounded">{"{{lead_name}}"}</code>{" "}
                       <code className="bg-gray-100 px-1 rounded">{"{{company}}"}</code>{" "}
@@ -228,20 +197,15 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <FormLabel>Prazo (valor)</FormLabel>
-                      <input
-                        type="number" min={0} max={9999}
-                        value={(automation as TaskAutomation).dueValue}
-                        onChange={(e) => update(i, { dueValue: Number(e.target.value) })}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
-                      />
+                      <input type="number" min={0} max={9999} value={automation.dueValue ?? 1}
+                        onChange={(e) => handleUpdate(automation, { dueValue: Number(e.target.value) })}
+                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400" />
                     </div>
                     <div>
                       <FormLabel>Unidade de tempo</FormLabel>
-                      <select
-                        value={(automation as TaskAutomation).dueUnit}
-                        onChange={(e) => update(i, { dueUnit: e.target.value as TimeUnit })}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white"
-                      >
+                      <select value={automation.dueUnit ?? "dias"}
+                        onChange={(e) => handleUpdate(automation, { dueUnit: e.target.value })}
+                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white">
                         <option value="segundos">Segundo(s)</option>
                         <option value="minutos">Minuto(s)</option>
                         <option value="horas">Hora(s)</option>
@@ -251,11 +215,9 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
                     </div>
                     <div>
                       <FormLabel>Prioridade</FormLabel>
-                      <select
-                        value={(automation as TaskAutomation).priority}
-                        onChange={(e) => update(i, { priority: e.target.value as TaskAutomation["priority"] })}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white"
-                      >
+                      <select value={automation.priority ?? "media"}
+                        onChange={(e) => handleUpdate(automation, { priority: e.target.value })}
+                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white">
                         <option value="baixa">Baixa</option>
                         <option value="media">Média</option>
                         <option value="alta">Alta</option>
@@ -265,15 +227,11 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
                   </div>
                   <div>
                     <FormLabel>Responsável</FormLabel>
-                    <select
-                      value={(automation as TaskAutomation).assigneeId}
-                      onChange={(e) => update(i, { assigneeId: e.target.value })}
-                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white"
-                    >
+                    <select value={automation.assigneeId ?? ""}
+                      onChange={(e) => handleUpdate(automation, { assigneeId: e.target.value })}
+                      className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white">
                       <option value="">Mesmo responsável do lead</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
+                      {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                   </div>
                 </>
@@ -532,7 +490,7 @@ export default function CRMPage() {
   const { leads } = useLeads();
   const { users } = useUsers();
   const { stages } = usePipelineStore();
-  const { getAutomations } = useAutomationStore();
+  const { automations: allAutomations } = useAutomations(); // todos os gatilhos do banco
   const { currentUser } = useAuthStore();
 
   const seen = new Set<string>();
@@ -560,16 +518,41 @@ export default function CRMPage() {
   const getStageLeads = (stageId: string) => filtered.filter((l) => l.status === stageId);
 
   // Executa gatilhos ao mover lead de etapa
-  function executeAutomations(lead: Lead, stageId: string) {
-    const automations = getAutomations(stageId);
+  async function executeAutomations(lead: Lead, stageId: string) {
+    // Busca os gatilhos ativos deste stage diretamente do banco
+    const stageAutomations = allAutomations.filter((a) => a.stageId === stageId && a.active);
+    if (stageAutomations.length === 0) return;
+
     const stage = stages.find((s) => s.id === stageId);
     const stageLabel = stage?.label ?? stageId;
     const now = new Date();
 
-    automations.filter((a) => a.active).forEach((automation) => {
+    // Busca dados fiscais do cliente vinculado ao lead (se houver)
+    let clientFiscal: Record<string, string | null> = {};
+    if (lead.company) {
+      try {
+        const res = await fetch(`/api/clients?search=${encodeURIComponent(lead.company)}`);
+        if (res.ok) {
+          const clients = await res.json();
+          const client = clients[0];
+          if (client) {
+            clientFiscal = {
+              cnpj: client.cnpj ?? null,
+              trade_name: client.tradeName ?? null,
+              state_registration: client.stateRegistration ?? null,
+              municipal_registration: client.municipalRegistration ?? null,
+              tax_regime: client.taxRegime ?? null,
+              legal_nature: client.legalNature ?? null,
+              founding_date: client.foundingDate ?? null,
+            };
+          }
+        }
+      } catch {/* silently fail */}
+    }
+
+    for (const automation of stageAutomations) {
       if (automation.type === "webhook") {
-        const wa = automation as WebhookAutomation;
-        if (!wa.url) return;
+        if (!automation.url) continue;
         const payload = {
           event: "lead_stage_changed",
           stage_id: stageId,
@@ -582,10 +565,14 @@ export default function CRMPage() {
             company: lead.company ?? "",
             value: lead.value,
             source: lead.source,
+            tags: lead.tags ?? [],
+            notes: lead.notes ?? "",
+            next_follow_up: lead.nextFollowUp ?? null,
           },
+          client: clientFiscal,
           timestamp: now.toISOString(),
         };
-        fetch(wa.url, {
+        fetch(automation.url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -593,27 +580,26 @@ export default function CRMPage() {
       }
 
       if (automation.type === "task") {
-        const ta = automation as TaskAutomation;
-        const title = ta.titleTemplate
+        const title = (automation.titleTemplate ?? "Follow-up: {{lead_name}}")
           .replace("{{lead_name}}", lead.name)
           .replace("{{company}}", lead.company ?? "")
           .replace("{{stage}}", stageLabel);
 
-        const dueDateFull = calculateDueDate(now.toISOString(), ta.dueValue, ta.dueUnit);
+        const dueDateFull = calculateDueDate(now.toISOString(), automation.dueValue ?? 1, automation.dueUnit as TimeUnit);
         const dueDateStr = dueDateFull.split("T")[0];
 
         createTask({
           title,
           description: `Tarefa criada automaticamente ao mover ${lead.name} para "${stageLabel}"`,
-          assigneeId: ta.assigneeId || lead.responsibleId || currentUser?.id || "",
+          assigneeId: automation.assigneeId || lead.responsibleId || currentUser?.id || "",
           creatorId: currentUser?.id ?? "system",
           status: "a_fazer",
-          priority: ta.priority,
-          dueDate: ta.dueValue > 0 ? dueDateStr : undefined,
+          priority: (automation.priority ?? "media") as Task["priority"],
+          dueDate: (automation.dueValue ?? 0) > 0 ? dueDateStr : undefined,
           tags: ["automacao", "crm"],
         });
       }
-    });
+    }
   }
 
   const onDragStart = (id: string) => { dragItem.current = id; setDragging(id); };
