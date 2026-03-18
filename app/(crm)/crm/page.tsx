@@ -291,9 +291,12 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
 function PipelineConfigModal({ onClose, defaultTab = "stages" }: { onClose: () => void; defaultTab?: "stages" | "automations" }) {
   const { stages, addStage, updateStage, deleteStage, reorderStages } = usePipelineStore();
   const [tab, setTab] = useState<"stages" | "automations">(defaultTab);
-  const [localStages, setLocalStages] = useState<PipelineStage[]>(
-    [...stages].sort((a, b) => a.order - b.order)
-  );
+  const [localStages, setLocalStages] = useState<PipelineStage[]>(() => {
+    const seen = new Set<string>();
+    return [...stages]
+      .filter((s) => { if (seen.has(s.id)) return false; seen.add(s.id); return true; })
+      .sort((a, b) => a.order - b.order);
+  });
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState("#6366f1");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -537,7 +540,12 @@ export default function CRMPage() {
   const { addTask } = useTasksStore();
   const { currentUser } = useAuthStore();
 
-  const sortedStages = [...stages].sort((a, b) => a.order - b.order);
+  const sortedStages = useMemo(() => {
+    const seen = new Set<string>();
+    return [...stages]
+      .filter((s) => { if (seen.has(s.id)) return false; seen.add(s.id); return true; })
+      .sort((a, b) => a.order - b.order);
+  }, [stages]);
 
   const [search, setSearch] = useState("");
   const [dragging, setDragging] = useState<string | null>(null);

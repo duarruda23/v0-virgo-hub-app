@@ -187,9 +187,10 @@ export function timeToMilliseconds(value: number, unit: TimeUnit): number {
 /**
  * Calcula a data de vencimento a partir de uma data inicial + duração
  */
-export function calculateDueDate(fromDate: string, value: number, unit: TimeUnit): string {
+export function calculateDueDate(fromDate: string, value: number, unit: TimeUnit | undefined): string {
+  const safeUnit: TimeUnit = unit ?? "dias";
   const base = new Date(fromDate);
-  const ms = timeToMilliseconds(value, unit);
+  const ms = timeToMilliseconds(value, safeUnit);
   const dueDate = new Date(base.getTime() + ms);
   return dueDate.toISOString();
 }
@@ -197,6 +198,7 @@ export function calculateDueDate(fromDate: string, value: number, unit: TimeUnit
 /**
  * Formata uma duração de tempo legível
  */
-export function formatDuration(value: number, unit: TimeUnit): string {
-  return `${value} ${TIME_UNIT_LABELS[unit].toLowerCase()}`;
+export function formatDuration(value: number, unit: TimeUnit | undefined): string {
+  const safeUnit: TimeUnit = unit ?? "dias";
+  return `${value} ${TIME_UNIT_LABELS[safeUnit].toLowerCase()}`;
 }
