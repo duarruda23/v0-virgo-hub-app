@@ -52,12 +52,12 @@ export default function ClientesPage() {
     else { setSortKey(key); setSortAsc(true); }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.name || !modal?.email) return;
     if (isEditing && modal.id) {
-      updateClient(modal.id, modal);
+      await updateClient(modal.id, modal);
     } else {
-      addClient({ ...EMPTY, ...modal, id: generateId("c"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Client);
+      await createClient({ ...EMPTY, ...modal });
     }
     setModal(null);
   };

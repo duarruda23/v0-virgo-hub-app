@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Bell, Search, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useNotificationsStore, useAuthStore } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
+import { useNotifications, markNotificationRead, markAllNotificationsRead } from "@/hooks/use-data";
 import { formatRelativeDate } from "@/lib/utils-crm";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -23,7 +24,7 @@ const PAGE_TITLES: Record<string, string> = {
 export function CRMHeader() {
   const pathname = usePathname();
   const [notifOpen, setNotifOpen] = useState(false);
-  const { notifications, markRead, markAllRead } = useNotificationsStore();
+  const { notifications } = useNotifications();
   const { currentUser } = useAuthStore();
 
   const title = PAGE_TITLES[pathname] ?? "Virgo Hub";
@@ -65,7 +66,7 @@ export function CRMHeader() {
               <p className="font-semibold text-sm text-gray-900">Notificações</p>
               <div className="flex items-center gap-2">
                 {unread > 0 && (
-                  <button onClick={markAllRead} className="text-xs text-yellow-600 hover:text-yellow-700 font-medium">
+                  <button onClick={() => markAllNotificationsRead(notifications)} className="text-xs text-yellow-600 hover:text-yellow-700 font-medium">
                     Marcar todas
                   </button>
                 )}
@@ -81,7 +82,7 @@ export function CRMHeader() {
               {notifications.map((n) => (
                 <button
                   key={n.id}
-                  onClick={() => markRead(n.id)}
+                  onClick={() => markNotificationRead(n.id)}
                   className={cn(
                     "w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors",
                     !n.read && "bg-yellow-50"

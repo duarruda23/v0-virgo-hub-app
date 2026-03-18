@@ -1,5 +1,5 @@
 import useSWR, { mutate } from "swr";
-import type { User, Client, Lead, Project, Delivery, Task, Product } from "@/lib/types";
+import type { User, Client, Lead, Project, Delivery, Task, Product, Notification } from "@/lib/types";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -176,4 +176,24 @@ export async function updateProduct(id: string, data: Partial<Product>) {
 export async function deleteProduct(id: string) {
   await fetch(`/api/products/${id}`, { method: "DELETE" });
   mutate("/api/products");
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+export function useNotifications() {
+  const { data, error, isLoading } = useSWR<Notification[]>("/api/notifications", fetcher);
+  return { notifications: data ?? [], error, isLoading };
+}
+
+export async function markNotificationRead(id: string) {
+  await fetch(`/api/notifications/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ read: true }),
+  });
+  mutate("/api/notifications");
+}
+
+export async function markAllNotificationsRead(notifications: Notification[]) {
+  await Promise.all(notifications.filter((n) => !n.read).map((n) => markNotificationRead(n.id)));
+  mutate("/api/notifications");
 }
