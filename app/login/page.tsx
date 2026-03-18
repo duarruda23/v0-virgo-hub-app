@@ -56,7 +56,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex justify-center mb-8">
-          <Image src="/logo-virgo.png" alt="Virgo Hub" width={180} height={60} className="object-contain" priority />
+          <Image src="/logo-virgo.png" alt="Virgo Hub" width={200} height={200} style={{ width: 200, height: "auto" }} priority />
         </div>
 
         {/* Card */}

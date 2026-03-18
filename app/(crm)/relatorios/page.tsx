@@ -19,15 +19,32 @@ export default function RelatoriosPage() {
   const { users } = useUsersStore();
   const { products } = useProductsStore();
 
-  // MRR por mês (simulado)
-  const mrrData = [
-    { mes: "Out/24", mrr: 24000 },
-    { mes: "Nov/24", mrr: 27500 },
-    { mes: "Dez/24", mrr: 26000 },
-    { mes: "Jan/25", mrr: 30000 },
-    { mes: "Fev/25", mrr: 31500 },
-    { mes: "Mar/25", mrr: 31500 },
-  ];
+  // MRR acumulado mês a mês com base nos clientes reais
+  // Gera os últimos 6 meses a partir do mês atual
+  const mrrData = useMemo(() => {
+    const now = new Date();
+    const months: { key: string; mes: string; mrr: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = d.getMonth(); // 0-based
+      const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" });
+      months.push({ key, mes: label, mrr: 0 });
+    }
+
+    // Para cada mês, soma o MRR de todos os clientes ativos criados até aquele mês
+    months.forEach((m) => {
+      const [y, mo] = m.key.split("-").map(Number);
+      const endOfMonth = new Date(y, mo, 0, 23, 59, 59); // último dia do mês
+      m.mrr = clients
+        .filter((c) => c.status === "ativo" && new Date(c.createdAt) <= endOfMonth)
+        .reduce((sum, c) => sum + c.mrr, 0);
+    });
+
+    return months;
+  }, [clients]);
 
   // Clientes por status
   const clientsByStatus = useMemo(() => {
@@ -102,7 +119,18 @@ export default function RelatoriosPage() {
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard label="MRR Atual" value={formatCurrency(totalMRR)} delta="+5%" positive />
+        <KPICard
+          label="MRR Atual"
+          value={formatCurrency(totalMRR)}
+          delta={(() => {
+            const prev = mrrData.length >= 2 ? mrrData[mrrData.length - 2].mrr : 0;
+            if (prev === 0) return totalMRR > 0 ? "Novo" : "Sem dados";
+            const diff = totalMRR - prev;
+            const pct = Math.round((diff / prev) * 100);
+            return `${pct >= 0 ? "+" : ""}${pct}% vs mês anterior`;
+          })()}
+          positive={mrrData.length >= 2 ? totalMRR >= mrrData[mrrData.length - 2].mrr : false}
+        />
         <KPICard label="Pipeline CRM" value={formatCurrency(totalPipeline)} delta={`${leads.filter(l => l.status !== "perdido" && l.status !== "ganho").length} leads`} />
         <KPICard label="Taxa de Conversão" value={`${conversionRate}%`} delta="Fechados" />
         <KPICard label="Progresso Médio" value={`${avgProjectProgress}%`} delta="Projetos ativos" />
