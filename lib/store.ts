@@ -158,6 +158,50 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
   reorderStages: (stages) => set({ stages }),
 }));
 
+// ─── Automation Store ─────────────────────────────────────────────────────────
+export type AutomationTriggerType = "webhook" | "task";
+
+export interface WebhookAutomation {
+  type: "webhook";
+  url: string;
+  active: boolean;
+}
+
+export interface TaskAutomation {
+  type: "task";
+  titleTemplate: string;   // suporta {{lead_name}}, {{company}}, {{stage}}
+  priority: "baixa" | "media" | "alta" | "urgente";
+  assigneeId: string;      // "" = responsável do lead
+  dueDays: number;          // dias após entrada na etapa
+  active: boolean;
+}
+
+export type StageAutomation = WebhookAutomation | TaskAutomation;
+
+export interface StageAutomationConfig {
+  stageId: string;
+  automations: StageAutomation[];
+}
+
+interface AutomationStore {
+  configs: StageAutomationConfig[];
+  setAutomations: (stageId: string, automations: StageAutomation[]) => void;
+  getAutomations: (stageId: string) => StageAutomation[];
+}
+
+export const useAutomationStore = create<AutomationStore>((set, get) => ({
+  configs: [],
+  setAutomations: (stageId, automations) =>
+    set((s) => {
+      const exists = s.configs.find((c) => c.stageId === stageId);
+      if (exists) {
+        return { configs: s.configs.map((c) => c.stageId === stageId ? { ...c, automations } : c) };
+      }
+      return { configs: [...s.configs, { stageId, automations }] };
+    }),
+  getAutomations: (stageId) => get().configs.find((c) => c.stageId === stageId)?.automations ?? [],
+}));
+
 // ─── Notifications Store ──────────────────────────────────────────────────────
 interface NotificationsStore {
   notifications: Notification[];
