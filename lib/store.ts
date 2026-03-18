@@ -166,7 +166,7 @@ export const useUsersStore = create<UsersStore>()(
   )
 );
 
-// ─── Pipeline Store ───────────────────────────────────────────────────────────
+// ─── Pipeline Store ────────────────────────────────────────��──────────────────
 export interface PipelineStage {
   id: string;
   label: string;
@@ -206,6 +206,7 @@ export const usePipelineStore = create<PipelineStore>()(
 
 // ─── Automation Store ─────────────────────────────────────────────────────────
 export type AutomationTriggerType = "webhook" | "task";
+export type TimeUnit = "segundos" | "minutos" | "horas" | "dias" | "meses";
 
 export interface WebhookAutomation {
   type: "webhook";
@@ -218,7 +219,8 @@ export interface TaskAutomation {
   titleTemplate: string;   // suporta {{lead_name}}, {{company}}, {{stage}}
   priority: "baixa" | "media" | "alta" | "urgente";
   assigneeId: string;      // "" = responsável do lead
-  dueDays: number;          // dias após entrada na etapa
+  dueValue: number;         // quantidade de tempo
+  dueUnit: TimeUnit;        // unidade de tempo
   active: boolean;
 }
 

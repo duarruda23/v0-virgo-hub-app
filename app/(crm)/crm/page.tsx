@@ -11,7 +11,7 @@ import {
 } from "@/lib/store";
 import type { PipelineStage, StageAutomation, WebhookAutomation, TaskAutomation } from "@/lib/store";
 import type { Lead, LeadSource, Task } from "@/lib/types";
-import { formatCurrency, formatDate, getInitials, generateId } from "@/lib/utils-crm";
+import { formatCurrency, formatDate, getInitials, generateId, TIME_UNIT_LABELS, formatDuration, calculateDueDate, type TimeUnit } from "@/lib/utils-crm";
 
 const SOURCE_LABELS: Record<LeadSource, string> = {
   indicacao: "Indicação", site: "Site", redes_sociais: "Redes Sociais",
@@ -67,7 +67,8 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
       titleTemplate: "Follow-up: {{lead_name}}",
       priority: "media",
       assigneeId: "",
-      dueDays: 1,
+      dueValue: 1,
+      dueUnit: "dias" as TimeUnit,
       active: true,
     }]);
     setExpanded(automations.length);
@@ -139,7 +140,10 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
               <p className="text-[10px] text-gray-400 truncate">
                 {automation.type === "webhook"
                   ? ((automation as WebhookAutomation).url || "URL não configurada")
-                  : `"${(automation as TaskAutomation).titleTemplate}" · +${(automation as TaskAutomation).dueDays}d`
+                  : (() => {
+                      const ta = automation as TaskAutomation;
+                      return `"${ta.titleTemplate}" · +${formatDuration(ta.dueValue, ta.dueUnit)}`;
+                    })()
                 }
               </p>
             </div>
@@ -222,15 +226,29 @@ function AutomationPanel({ stage }: { stage: PipelineStage }) {
                       <code className="bg-gray-100 px-1 rounded">{"{{stage}}"}</code>
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <FormLabel>Prazo (dias após entrar na etapa)</FormLabel>
+                      <FormLabel>Prazo (valor)</FormLabel>
                       <input
-                        type="number" min={0} max={365}
-                        value={(automation as TaskAutomation).dueDays}
-                        onChange={(e) => update(i, { dueDays: Number(e.target.value) })}
+                        type="number" min={0} max={9999}
+                        value={(automation as TaskAutomation).dueValue}
+                        onChange={(e) => update(i, { dueValue: Number(e.target.value) })}
                         className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
                       />
+                    </div>
+                    <div>
+                      <FormLabel>Unidade de tempo</FormLabel>
+                      <select
+                        value={(automation as TaskAutomation).dueUnit}
+                        onChange={(e) => update(i, { dueUnit: e.target.value as TimeUnit })}
+                        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 bg-white"
+                      >
+                        <option value="segundos">Segundo(s)</option>
+                        <option value="minutos">Minuto(s)</option>
+                        <option value="horas">Hora(s)</option>
+                        <option value="dias">Dia(s)</option>
+                        <option value="meses">Mês(es)</option>
+                      </select>
                     </div>
                     <div>
                       <FormLabel>Prioridade</FormLabel>
@@ -586,9 +604,8 @@ export default function CRMPage() {
           .replace("{{company}}", lead.company ?? "")
           .replace("{{stage}}", stageLabel);
 
-        const dueDate = new Date(now);
-        dueDate.setDate(dueDate.getDate() + ta.dueDays);
-        const dueDateStr = dueDate.toISOString().split("T")[0];
+        const dueDateFull = calculateDueDate(now.toISOString(), ta.dueValue, ta.dueUnit);
+        const dueDateStr = dueDateFull.split("T")[0];
 
         const task: Task = {
           id: generateId("task"),
@@ -598,7 +615,7 @@ export default function CRMPage() {
           creatorId: currentUser?.id ?? "system",
           status: "a_fazer",
           priority: ta.priority,
-          dueDate: ta.dueDays > 0 ? dueDateStr : undefined,
+          dueDate: ta.dueValue > 0 ? dueDateStr : undefined,
           tags: ["automacao", "crm"],
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),

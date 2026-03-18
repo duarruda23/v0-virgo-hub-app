@@ -158,3 +158,45 @@ export function getInitials(name: string) {
 export function generateId(prefix = "id") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
+
+// ─── Time Utilities ────────────────────────────────────────────────────────────
+export type TimeUnit = "segundos" | "minutos" | "horas" | "dias" | "meses";
+
+export const TIME_UNIT_LABELS: Record<TimeUnit, string> = {
+  segundos: "Segundo(s)",
+  minutos: "Minuto(s)",
+  horas: "Hora(s)",
+  dias: "Dia(s)",
+  meses: "Mês(es)",
+};
+
+/**
+ * Converte uma quantidade + unidade de tempo para milissegundos
+ */
+export function timeToMilliseconds(value: number, unit: TimeUnit): number {
+  const conversions: Record<TimeUnit, number> = {
+    segundos: 1000,
+    minutos: 60 * 1000,
+    horas: 60 * 60 * 1000,
+    dias: 24 * 60 * 60 * 1000,
+    meses: 30 * 24 * 60 * 60 * 1000, // 30 dias por mês
+  };
+  return value * (conversions[unit] || conversions.dias);
+}
+
+/**
+ * Calcula a data de vencimento a partir de uma data inicial + duração
+ */
+export function calculateDueDate(fromDate: string, value: number, unit: TimeUnit): string {
+  const base = new Date(fromDate);
+  const ms = timeToMilliseconds(value, unit);
+  const dueDate = new Date(base.getTime() + ms);
+  return dueDate.toISOString();
+}
+
+/**
+ * Formata uma duração de tempo legível
+ */
+export function formatDuration(value: number, unit: TimeUnit): string {
+  return `${value} ${TIME_UNIT_LABELS[unit].toLowerCase()}`;
+}
