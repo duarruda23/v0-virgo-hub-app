@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import {
   Plus, X, Phone, Mail, Building2, DollarSign, Calendar,
   Pencil, Trash2, Search, Settings2, GripVertical, Check,
@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { usePipelineStore, useAuthStore } from "@/lib/store";
 import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask, useAutomations, createAutomation, updateAutomation, deleteAutomation, type AutomationRecord } from "@/hooks/use-data";
 import type { PipelineStage } from "@/lib/store";
-import type { Task } from "@/lib/types";
 import type { Lead, LeadSource, Task } from "@/lib/types";
 import { formatCurrency, formatDate, getInitials, generateId, TIME_UNIT_LABELS, formatDuration, calculateDueDate, type TimeUnit } from "@/lib/utils-crm";
 
@@ -711,7 +710,9 @@ export default function CRMPage() {
         {sortedStages.map((stage) => {
           const stageLeads = getStageLeads(stage.id);
           const stageValue = stageLeads.reduce((sum, l) => sum + l.value, 0);
-          const automationCount = allAutomations.filter((a) => a.stageId === stage.id && a.active).length;
+          const automationCount = Array.isArray(allAutomations)
+            ? allAutomations.filter((a) => a.stageId === stage.id && a.active).length
+            : 0;
           return (
             <div
               key={stage.id}
