@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { Plus, X, Search, Mail, Phone, Shield, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUsersStore, useTasksStore, useProjectsStore } from "@/lib/store";
+import { useUsers, createUser, updateUser, deleteUser, useTasks, useProjects } from "@/hooks/use-data";
 import type { User as UserType, Role } from "@/lib/types";
 import { getInitials, generateId } from "@/lib/utils-crm";
 
@@ -32,9 +32,9 @@ const EMPTY_USER: Omit<UserType, "id" | "createdAt"> = {
 };
 
 export default function EquipePage() {
-  const { users, addUser, updateUser, deleteUser } = useUsersStore();
-  const { tasks } = useTasksStore();
-  const { projects } = useProjectsStore();
+  const { users } = useUsers();
+  const { tasks } = useTasks();
+  const { projects } = useProjects();
 
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState<Role | "all">("all");
@@ -49,12 +49,12 @@ export default function EquipePage() {
     return matchSearch && matchRole;
   }), [users, search, filterRole]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.name || !modal?.email) return;
     if (isEditing && modal.id) {
-      updateUser(modal.id, modal);
+      await updateUser(modal.id, modal);
     } else {
-      addUser({ ...EMPTY_USER, ...modal, id: generateId("u"), createdAt: new Date().toISOString() } as UserType);
+      await createUser({ ...EMPTY_USER, ...modal });
     }
     setModal(null); setIsEditing(false);
   };

@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { Plus, X, Pencil, Trash2, Check, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useProductsStore } from "@/lib/store";
+import { useProducts, createProduct, updateProduct, deleteProduct } from "@/hooks/use-data";
 import type { Product, ProductCategory, BillingCycle } from "@/lib/types";
 import { PRODUCT_CATEGORY_LABELS, BILLING_CYCLE_LABELS, formatCurrency, generateId } from "@/lib/utils-crm";
 
@@ -22,7 +22,7 @@ const EMPTY: Omit<Product, "id" | "createdAt" | "updatedAt"> = {
 };
 
 export default function ProdutosPage() {
-  const { products, addProduct, updateProduct, deleteProduct } = useProductsStore();
+  const { products } = useProducts();
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | "todos">("todos");
   const [activeFilter, setActiveFilter] = useState<"todos" | "ativo" | "inativo">("todos");
   const [modal, setModal] = useState<Partial<Product> | null>(null);
@@ -37,12 +37,12 @@ export default function ProdutosPage() {
     return list;
   }, [products, categoryFilter, activeFilter]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.name) return;
     if (isEditing && modal.id) {
-      updateProduct(modal.id, modal);
+      await updateProduct(modal.id, modal);
     } else {
-      addProduct({ ...EMPTY, ...modal, id: generateId("pr"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Product);
+      await createProduct({ ...EMPTY, ...modal });
     }
     setModal(null);
   };

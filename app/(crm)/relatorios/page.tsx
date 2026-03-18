@@ -4,20 +4,20 @@ import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
-import { useClientsStore, useCRMStore, useProjectsStore, useTasksStore, useDeliveriesStore, useUsersStore, useProductsStore } from "@/lib/store";
+import { useClients, useLeads, useProjects, useTasks, useDeliveries, useUsers, useProducts } from "@/hooks/use-data";
 import { formatCurrency, PROJECT_STATUS_LABELS, DELIVERY_STATUS_LABELS } from "@/lib/utils-crm";
 import { cn } from "@/lib/utils";
 
 const COLORS = ["#FACC15", "#111827", "#3B82F6", "#22C55E", "#F97316", "#EF4444", "#8B5CF6", "#06B6D4"];
 
 export default function RelatoriosPage() {
-  const { clients } = useClientsStore();
-  const { leads } = useCRMStore();
-  const { projects } = useProjectsStore();
-  const { tasks } = useTasksStore();
-  const { deliveries } = useDeliveriesStore();
-  const { users } = useUsersStore();
-  const { products } = useProductsStore();
+  const { clients } = useClients();
+  const { leads } = useLeads();
+  const { projects } = useProjects();
+  const { tasks } = useTasks();
+  const { deliveries } = useDeliveries();
+  const { users } = useUsers();
+  const { products } = useProducts();
 
   // MRR acumulado mês a mês com base nos clientes reais
   // Gera os últimos 6 meses a partir do mês atual

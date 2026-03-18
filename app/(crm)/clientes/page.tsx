@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { Plus, X, Search, Phone, Mail, Globe, Building2, Pencil, Trash2, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useClientsStore, useUsersStore, useProjectsStore } from "@/lib/store";
+import { useClients, createClient, updateClient, deleteClient, useUsers, useProjects } from "@/hooks/use-data";
 import type { Client, ClientStatus, ClientTier } from "@/lib/types";
 import {
   CLIENT_STATUS_LABELS, CLIENT_STATUS_COLORS, CLIENT_TIER_LABELS, CLIENT_TIER_COLORS,
@@ -18,9 +18,9 @@ const EMPTY: Omit<Client, "id" | "createdAt" | "updatedAt"> = {
 type SortKey = "name" | "mrr" | "status" | "createdAt";
 
 export default function ClientesPage() {
-  const { clients, addClient, updateClient, deleteClient } = useClientsStore();
-  const { users } = useUsersStore();
-  const { projects } = useProjectsStore();
+  const { clients } = useClients();
+  const { users } = useUsers();
+  const { projects } = useProjects();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "todos">("todos");

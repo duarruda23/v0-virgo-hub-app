@@ -9,10 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Legend
 } from "recharts";
-import {
-  useClientsStore, useCRMStore, useProjectsStore,
-  useTasksStore, useDeliveriesStore, useUsersStore, useProductsStore
-} from "@/lib/store";
+import { useClients, useLeads, useProjects, useTasks, useDeliveries, useUsers } from "@/hooks/use-data";
 import { cn } from "@/lib/utils";
 import {
   formatCurrency, formatDate,
@@ -27,13 +24,12 @@ import {
 const PT_MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 export default function DashboardContent() {
-  const { clients } = useClientsStore();
-  const { leads } = useCRMStore();
-  const { projects } = useProjectsStore();
-  const { tasks } = useTasksStore();
-  const { deliveries } = useDeliveriesStore();
-  const { users } = useUsersStore();
-  const { products } = useProductsStore();
+  const { clients } = useClients();
+  const { leads } = useLeads();
+  const { projects } = useProjects();
+  const { tasks } = useTasks();
+  const { deliveries } = useDeliveries();
+  const { users } = useUsers();
   const now = new Date();
 
   // ── KPIs ──────────────────────────────────────────────────────────────────

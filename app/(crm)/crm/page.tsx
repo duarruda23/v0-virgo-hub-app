@@ -6,9 +6,8 @@ import {
   Webhook, ListTodo, ChevronDown, ChevronRight, Zap, Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  useCRMStore, useUsersStore, usePipelineStore, useAutomationStore, useTasksStore, useAuthStore
-} from "@/lib/store";
+import { usePipelineStore, useAutomationStore, useAuthStore } from "@/lib/store";
+import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask } from "@/hooks/use-data";
 import type { PipelineStage, StageAutomation, WebhookAutomation, TaskAutomation } from "@/lib/store";
 import type { Lead, LeadSource, Task } from "@/lib/types";
 import { formatCurrency, formatDate, getInitials, generateId, TIME_UNIT_LABELS, formatDuration, calculateDueDate, type TimeUnit } from "@/lib/utils-crm";
@@ -47,7 +46,7 @@ function FormInput({ value, onChange, type = "text", placeholder }: {
 // ─── Automation Config Panel ─────────────────────────────────────────────────
 function AutomationPanel({ stage }: { stage: PipelineStage }) {
   const { getAutomations, setAutomations } = useAutomationStore();
-  const { users } = useUsersStore();
+  const { users } = useUsers();
   const [automations, setLocal] = useState<StageAutomation[]>(getAutomations(stage.id));
   const [expanded, setExpanded] = useState<number | null>(null);
 
@@ -533,11 +532,10 @@ function PipelineConfigModal({ onClose, defaultTab = "stages" }: { onClose: () =
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CRMPage() {
-  const { leads, addLead, updateLead, deleteLead, moveLeadStatus } = useCRMStore();
-  const { users } = useUsersStore();
+  const { leads } = useLeads();
+  const { users } = useUsers();
   const { stages } = usePipelineStore();
   const { getAutomations } = useAutomationStore();
-  const { addTask } = useTasksStore();
   const { currentUser } = useAuthStore();
 
   const seen = new Set<string>();
@@ -607,8 +605,7 @@ export default function CRMPage() {
         const dueDateFull = calculateDueDate(now.toISOString(), ta.dueValue, ta.dueUnit);
         const dueDateStr = dueDateFull.split("T")[0];
 
-        const task: Task = {
-          id: generateId("task"),
+        createTask({
           title,
           description: `Tarefa criada automaticamente ao mover ${lead.name} para "${stageLabel}"`,
           assigneeId: ta.assigneeId || lead.responsibleId || currentUser?.id || "",
@@ -617,10 +614,7 @@ export default function CRMPage() {
           priority: ta.priority,
           dueDate: ta.dueValue > 0 ? dueDateStr : undefined,
           tags: ["automacao", "crm"],
-          createdAt: now.toISOString(),
-          updatedAt: now.toISOString(),
-        };
-        addTask(task);
+        });
       }
     });
   }
@@ -631,7 +625,7 @@ export default function CRMPage() {
     if (dragItem.current) {
       const lead = leads.find((l) => l.id === dragItem.current);
       if (lead && lead.status !== stageId) {
-        moveLeadStatus(dragItem.current, stageId as Lead["status"]);
+        updateLead(dragItem.current, { status: stageId as Lead["status"] });
         executeAutomations(lead, stageId);
       }
     }
@@ -649,14 +643,12 @@ export default function CRMPage() {
     setDetailLead(null);
   }
 
-  function saveLead() {
+  async function saveLead() {
     if (!modalLead?.name) return;
     if (isEditing && modalLead.id) {
-      updateLead(modalLead.id, modalLead);
+      await updateLead(modalLead.id, modalLead);
     } else {
-      const now = new Date().toISOString();
-      const newLead: Lead = {
-        id: generateId("lead"),
+      const payload = {
         name: modalLead.name ?? "",
         email: modalLead.email ?? "",
         phone: modalLead.phone,
@@ -668,11 +660,9 @@ export default function CRMPage() {
         notes: modalLead.notes,
         tags: modalLead.tags ?? [],
         nextFollowUp: modalLead.nextFollowUp,
-        createdAt: now,
-        updatedAt: now,
       };
-      addLead(newLead);
-      executeAutomations(newLead, newLead.status);
+      const newLead = await createLead(payload);
+      if (newLead?.id) executeAutomations(newLead, newLead.status);
     }
     setModalLead(null);
   }

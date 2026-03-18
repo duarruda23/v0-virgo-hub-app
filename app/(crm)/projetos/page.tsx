@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { ClientOnly } from "@/components/crm/ClientOnly";
 import { Plus, X, Search, Calendar, Users, Pencil, Trash2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useProjectsStore, useClientsStore, useUsersStore } from "@/lib/store";
+import { useProjects, createProject, updateProject, deleteProject, useClients, useUsers } from "@/hooks/use-data";
 import type { Project, ProjectStatus, ProjectPriority } from "@/lib/types";
 import {
   PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS,
@@ -21,9 +21,9 @@ const EMPTY: Omit<Project, "id" | "createdAt" | "updatedAt"> = {
 const ALL_STATUSES: ProjectStatus[] = ["briefing", "planejamento", "em_execucao", "revisao", "aprovacao", "concluido", "pausado", "cancelado"];
 
 export default function ProjetosPage() {
-  const { projects, addProject, updateProject, deleteProject } = useProjectsStore();
-  const { clients } = useClientsStore();
-  const { users } = useUsersStore();
+  const { projects } = useProjects();
+  const { clients } = useClients();
+  const { users } = useUsers();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | "todos">("todos");
@@ -39,12 +39,12 @@ export default function ProjetosPage() {
     return list;
   }, [projects, search, statusFilter]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.name || !modal?.clientId) return;
     if (isEditing && modal.id) {
-      updateProject(modal.id, modal);
+      await updateProject(modal.id, modal);
     } else {
-      addProject({ ...EMPTY, ...modal, id: generateId("p"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Project);
+      await createProject({ ...EMPTY, ...modal });
     }
     setModal(null);
   };

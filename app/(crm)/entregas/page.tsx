@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { ClientOnly } from "@/components/crm/ClientOnly";
 import { Plus, X, Search, Calendar, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDeliveriesStore, useProjectsStore, useUsersStore } from "@/lib/store";
+import { useDeliveries, createDelivery, updateDelivery, deleteDelivery, useProjects, useUsers } from "@/hooks/use-data";
 import type { Delivery, DeliveryStatus, DeliveryType } from "@/lib/types";
 import {
   DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS,
@@ -25,9 +25,9 @@ const EMPTY: Omit<Delivery, "id" | "createdAt" | "updatedAt"> = {
 };
 
 export default function EntregasPage() {
-  const { deliveries, addDelivery, updateDelivery, deleteDelivery } = useDeliveriesStore();
-  const { projects } = useProjectsStore();
-  const { users } = useUsersStore();
+  const { deliveries } = useDeliveries();
+  const { projects } = useProjects();
+  const { users } = useUsers();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "todos">("todos");
@@ -44,12 +44,12 @@ export default function EntregasPage() {
 
   const getByStatus = (s: DeliveryStatus) => filtered.filter((d) => d.status === s);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.title) return;
     if (isEditing && modal.id) {
-      updateDelivery(modal.id, modal);
+      await updateDelivery(modal.id, modal);
     } else {
-      addDelivery({ ...EMPTY, ...modal, id: generateId("d"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as Delivery);
+      await createDelivery({ ...EMPTY, ...modal });
     }
     setModal(null);
   };

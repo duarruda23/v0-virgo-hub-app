@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore, useUsersStore } from "@/lib/store";
+import { useAuthStore } from "@/lib/store";
 import type { User } from "@/lib/types";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 import Image from "next/image";
@@ -10,69 +10,58 @@ import Link from "next/link";
 export default function CadastroPage() {
   const router = useRouter();
   const { login, currentUser } = useAuthStore();
-  const { users, addUser } = useUsersStore();
   const [mounted, setMounted] = useState(false);
+  const [isFirstAccess, setIsFirstAccess] = useState<boolean | null>(null);
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "collaborator" as User["role"],
-  });
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "collaborator" as User["role"] });
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Só redireciona automaticamente se não é primeiro acesso E não está logado
-  // (usuário logado pode acessar /cadastro para criar novos membros)
-  const isFirstAccess = mounted && users.length === 0;
-
   useEffect(() => {
     if (!mounted) return;
-    // Sem usuários e sem sessão = primeiro acesso, fica na página
-    // Com usuários e sem sessão = vai para login
-    if (!isFirstAccess && !currentUser) router.replace("/login");
-  }, [mounted, isFirstAccess, currentUser, router]);
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((users: unknown[]) => {
+        const first = users.length === 0;
+        setIsFirstAccess(first);
+        if (!first && !currentUser) router.replace("/login");
+      })
+      .catch(() => { setIsFirstAccess(false); if (!currentUser) router.replace("/login"); });
+  }, [mounted, currentUser, router]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     setError("");
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
-      setError("Preencha todos os campos."); return;
+    if (form.password.length < 6) { setError("A senha deve ter no mínimo 6 caracteres."); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? "Erro ao cadastrar."); return; }
+      if (!currentUser) {
+        login(json.user);
+        router.push("/dashboard");
+      } else {
+        router.push("/equipe");
+      }
+    } catch {
+      setError("Erro de conexão. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
-    if (form.password.length < 6) {
-      setError("A senha deve ter no mínimo 6 caracteres."); return;
-    }
-    const exists = users.find((u) => u.email.toLowerCase() === form.email.toLowerCase());
-    if (exists) {
-      setError("Este e-mail já está cadastrado."); return;
-    }
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      name: form.name.trim(),
-      email: form.email.trim(),
-      password: form.password,
-      role: isFirstAccess ? "admin" : form.role,
-      avatar: "",
-      department: "",
-      phone: "",
-      active: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    addUser(newUser);
-    if (!currentUser) {
-      // Primeiro acesso: loga como o novo usuário (admin)
-      login(newUser);
-    }
-    router.push(currentUser ? "/equipe" : "/dashboard");
   }
 
-  if (!mounted || (!isFirstAccess && !currentUser)) {
+  if (!mounted || isFirstAccess === null || (!isFirstAccess && !currentUser)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-black border-t-yellow-400 rounded-full animate-spin" />
@@ -168,9 +157,9 @@ export default function CadastroPage() {
               </div>
             )}
 
-            <button type="submit"
-              className="w-full bg-yellow-400 border-2 border-black shadow-[3px_3px_0px_0px_#000] hover:shadow-none hover:translate-x-[3px] hover:translate-y-[3px] transition-all font-black text-black py-3 text-sm uppercase tracking-wide">
-              {isFirstAccess ? "Criar conta e entrar" : "Cadastrar e entrar"}
+            <button type="submit" disabled={loading}
+              className="w-full bg-yellow-400 border-2 border-black shadow-[3px_3px_0px_0px_#000] hover:shadow-none hover:translate-x-[3px] hover:translate-y-[3px] transition-all font-black text-black py-3 text-sm uppercase tracking-wide disabled:opacity-60 disabled:cursor-not-allowed">
+              {loading ? "Criando conta..." : isFirstAccess ? "Criar conta e entrar" : "Cadastrar"}
             </button>
 
             {!isFirstAccess && (

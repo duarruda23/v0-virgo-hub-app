@@ -3,7 +3,7 @@ import { useState, useRef, useMemo } from "react";
 import { ClientOnly } from "@/components/crm/ClientOnly";
 import { Plus, X, Search, Calendar, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTasksStore, useUsersStore, useProjectsStore } from "@/lib/store";
+import { useTasks, createTask, updateTask, deleteTask, useUsers, useProjects } from "@/hooks/use-data";
 import type { Task, TaskStatus, TaskPriority } from "@/lib/types";
 import {
   TASK_STATUS_LABELS, PRIORITY_LABELS, PRIORITY_COLORS,
@@ -26,9 +26,9 @@ const EMPTY_TASK: Omit<Task, "id" | "createdAt" | "updatedAt"> = {
 };
 
 export default function TarefasPage() {
-  const { tasks, addTask, updateTask, deleteTask, moveTaskStatus } = useTasksStore();
-  const { users } = useUsersStore();
-  const { projects } = useProjectsStore();
+  const { tasks } = useTasks();
+  const { users } = useUsers();
+  const { projects } = useProjects();
 
   const [search, setSearch] = useState("");
   const [filterAssignee, setFilterAssignee] = useState("all");
@@ -49,19 +49,18 @@ export default function TarefasPage() {
   const onDragStart = (id: string) => { dragItem.current = id; setDragging(id); };
   const onDragEnd = () => { setDragging(null); setDragOver(null); dragItem.current = null; };
   const onDrop = (status: TaskStatus) => {
-    if (dragItem.current) moveTaskStatus(dragItem.current, status);
+    if (dragItem.current) updateTask(dragItem.current, { status });
     setDragOver(null); setDragging(null); dragItem.current = null;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!modal?.title) return;
     if (isEditing && modal.id) {
-      updateTask(modal.id, modal);
+      await updateTask(modal.id, modal);
     } else {
-      addTask({
+      await createTask({
         ...EMPTY_TASK, ...modal,
-        id: generateId("t"), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-      } as Task);
+      });
     }
     setModal(null); setIsEditing(false);
   };
