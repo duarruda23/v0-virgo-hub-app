@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePipelineStore, useAuthStore } from "@/lib/store";
-import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask, useAutomations, createAutomation, updateAutomation, deleteAutomation, type AutomationRecord } from "@/hooks/use-data";
+import { useLeads, createLead, updateLead, deleteLead, useUsers, createTask, useAutomations, createAutomation, updateAutomation, deleteAutomation, createClient, type AutomationRecord } from "@/hooks/use-data";
 import type { PipelineStage } from "@/lib/store";
 import type { Lead, LeadSource, Task } from "@/lib/types";
 import { formatCurrency, formatDate, getInitials, generateId, TIME_UNIT_LABELS, formatDuration, calculateDueDate, type TimeUnit } from "@/lib/utils-crm";
@@ -19,8 +19,10 @@ const SOURCE_LABELS: Record<LeadSource, string> = {
 };
 
 const EMPTY_LEAD: Omit<Lead, "id" | "createdAt" | "updatedAt"> = {
-  name: "", email: "", phone: "", company: "", status: "novo",
-  source: "site", value: 0, responsibleId: "", notes: "", tags: [],
+  name: "", email: "", phone: "", company: "",
+  cnpj: "", tradeName: "", stateRegistration: "", municipalRegistration: "",
+  taxRegime: "", legalNature: "", foundingDate: "",
+  status: "novo", source: "site", value: 0, responsibleId: "", notes: "", tags: [],
 };
 
 const PRESET_COLORS = [
@@ -602,6 +604,33 @@ export default function CRMPage() {
     }
   }
 
+  // Converte lead em cliente automaticamente ao chegar em "ganho"
+  async function convertLeadToClient(lead: Lead) {
+    if (lead.convertedClientId) return; // já convertido
+    const client = await createClient({
+      name: lead.name,
+      email: lead.email,
+      phone: lead.phone,
+      company: lead.company,
+      cnpj: lead.cnpj,
+      tradeName: lead.tradeName,
+      stateRegistration: lead.stateRegistration,
+      municipalRegistration: lead.municipalRegistration,
+      taxRegime: lead.taxRegime,
+      legalNature: lead.legalNature,
+      foundingDate: lead.foundingDate,
+      status: "ativo",
+      tier: "standard",
+      responsibleId: lead.responsibleId ?? currentUser?.id ?? "",
+      mrr: lead.value,
+      tags: lead.tags ?? [],
+      notes: lead.notes,
+    });
+    if (client?.id) {
+      await updateLead(lead.id, { convertedClientId: client.id });
+    }
+  }
+
   const onDragStart = (id: string) => { dragItem.current = id; setDragging(id); };
   const onDragEnd = () => { setDragging(null); setDragOver(null); dragItem.current = null; };
   const onDrop = (stageId: string) => {
@@ -610,6 +639,7 @@ export default function CRMPage() {
       if (lead && lead.status !== stageId) {
         updateLead(dragItem.current, { status: stageId as Lead["status"] });
         executeAutomations(lead, stageId);
+        if (stageId === "ganho") convertLeadToClient(lead);
       }
     }
     setDragOver(null); setDragging(null); dragItem.current = null;
@@ -629,13 +659,25 @@ export default function CRMPage() {
   async function saveLead() {
     if (!modalLead?.name) return;
     if (isEditing && modalLead.id) {
+      const prevLead = leads.find((l) => l.id === modalLead.id);
       await updateLead(modalLead.id, modalLead);
+      // Se mudou para ganho, converte em cliente
+      if (modalLead.status === "ganho" && prevLead?.status !== "ganho") {
+        convertLeadToClient({ ...prevLead!, ...modalLead } as Lead);
+      }
     } else {
       const payload = {
         name: modalLead.name ?? "",
         email: modalLead.email ?? "",
         phone: modalLead.phone,
         company: modalLead.company,
+        cnpj: modalLead.cnpj,
+        tradeName: modalLead.tradeName,
+        stateRegistration: modalLead.stateRegistration,
+        municipalRegistration: modalLead.municipalRegistration,
+        taxRegime: modalLead.taxRegime,
+        legalNature: modalLead.legalNature,
+        foundingDate: modalLead.foundingDate,
         status: (modalLead.status as Lead["status"]) ?? "novo",
         source: (modalLead.source as Lead["source"]) ?? "site",
         value: Number(modalLead.value) || 0,
@@ -645,7 +687,10 @@ export default function CRMPage() {
         nextFollowUp: modalLead.nextFollowUp,
       };
       const newLead = await createLead(payload);
-      if (newLead?.id) executeAutomations(newLead, newLead.status);
+      if (newLead?.id) {
+        executeAutomations(newLead, newLead.status);
+        if (newLead.status === "ganho") convertLeadToClient(newLead);
+      }
     }
     setModalLead(null);
   }
@@ -947,6 +992,44 @@ export default function CRMPage() {
                 <div>
                   <FormLabel>Empresa</FormLabel>
                   <FormInput value={modalLead.company ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, company: v }))} placeholder="Nome da empresa" />
+                </div>
+                <div>
+                  <FormLabel>CNPJ</FormLabel>
+                  <FormInput value={modalLead.cnpj ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, cnpj: v }))} placeholder="00.000.000/0001-00" />
+                </div>
+                <div>
+                  <FormLabel>Nome Fantasia</FormLabel>
+                  <FormInput value={modalLead.tradeName ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, tradeName: v }))} placeholder="Nome fantasia" />
+                </div>
+                <div>
+                  <FormLabel>Inscrição Estadual</FormLabel>
+                  <FormInput value={modalLead.stateRegistration ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, stateRegistration: v }))} placeholder="IE" />
+                </div>
+                <div>
+                  <FormLabel>Inscrição Municipal</FormLabel>
+                  <FormInput value={modalLead.municipalRegistration ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, municipalRegistration: v }))} placeholder="IM" />
+                </div>
+                <div>
+                  <FormLabel>Regime Tributário</FormLabel>
+                  <select
+                    value={modalLead.taxRegime ?? ""}
+                    onChange={(e) => setModalLead((p) => ({ ...p, taxRegime: e.target.value }))}
+                    className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white"
+                  >
+                    <option value="">Selecionar</option>
+                    <option value="Simples Nacional">Simples Nacional</option>
+                    <option value="Lucro Presumido">Lucro Presumido</option>
+                    <option value="Lucro Real">Lucro Real</option>
+                    <option value="MEI">MEI</option>
+                  </select>
+                </div>
+                <div>
+                  <FormLabel>Natureza Jurídica</FormLabel>
+                  <FormInput value={modalLead.legalNature ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, legalNature: v }))} placeholder="ex: LTDA, SA, MEI" />
+                </div>
+                <div>
+                  <FormLabel>Data de Fundação</FormLabel>
+                  <FormInput type="date" value={modalLead.foundingDate ?? ""} onChange={(v) => setModalLead((p) => ({ ...p, foundingDate: v }))} />
                 </div>
                 <div>
                   <FormLabel>Valor estimado (R$)</FormLabel>

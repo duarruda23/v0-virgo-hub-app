@@ -51,6 +51,14 @@ export interface Lead {
   email: string;
   phone?: string;
   company?: string;
+  // Informações fiscais (usadas na conversão automática para cliente)
+  cnpj?: string;
+  tradeName?: string;
+  stateRegistration?: string;
+  municipalRegistration?: string;
+  taxRegime?: string;
+  legalNature?: string;
+  foundingDate?: string;
   status: LeadStatus;
   source: LeadSource;
   value: number;
