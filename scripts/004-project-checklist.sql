@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS project_checklist (
+  id          TEXT PRIMARY KEY,
+  project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  text        TEXT NOT NULL,
+  done        BOOLEAN NOT NULL DEFAULT FALSE,
+  position    INTEGER NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

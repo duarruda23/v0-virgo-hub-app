@@ -249,3 +249,53 @@ export async function deleteAutomation(id: string, stageId: string) {
   mutate(`/api/automations?stageId=${stageId}`);
   mutate("/api/automations");
 }
+
+// ─── Project Checklist ────────────────────────────────────────────────────────
+export interface ChecklistItem {
+  id: string;
+  projectId: string;
+  text: string;
+  done: boolean;
+  position: number;
+  createdAt?: string;
+}
+
+export function useProjectChecklist(projectId: string | null | undefined) {
+  const key = projectId ? `/api/checklist?projectId=${projectId}` : null;
+  const { data, error, isLoading } = useSWR<ChecklistItem[]>(key, fetcher);
+  return { items: data ?? [], error, isLoading };
+}
+
+export async function addChecklistItem(projectId: string, text: string) {
+  const res = await fetch("/api/checklist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectId, text }),
+  });
+  const json = await res.json();
+  mutate(`/api/checklist?projectId=${projectId}`);
+  return json as ChecklistItem;
+}
+
+export async function toggleChecklistItem(id: string, projectId: string, done: boolean) {
+  await fetch(`/api/checklist/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ done }),
+  });
+  mutate(`/api/checklist?projectId=${projectId}`);
+}
+
+export async function updateChecklistItem(id: string, projectId: string, text: string) {
+  await fetch(`/api/checklist/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  mutate(`/api/checklist?projectId=${projectId}`);
+}
+
+export async function deleteChecklistItem(id: string, projectId: string) {
+  await fetch(`/api/checklist/${id}`, { method: "DELETE" });
+  mutate(`/api/checklist?projectId=${projectId}`);
+}
