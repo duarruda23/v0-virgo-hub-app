@@ -1,5 +1,6 @@
 "use client";
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { User, Client, Lead, Project, Delivery, Task, Product, Notification } from "./types";
 import { MOCK_USERS, MOCK_CLIENTS, MOCK_LEADS, MOCK_PROJECTS, MOCK_DELIVERIES, MOCK_TASKS, MOCK_PRODUCTS, MOCK_NOTIFICATIONS } from "./mock-data";
 
@@ -10,11 +11,16 @@ interface AuthStore {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  currentUser: null, // começa sem sessão — usuário deve fazer login
-  login: (user) => set({ currentUser: user }),
-  logout: () => set({ currentUser: null }),
-}));
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set) => ({
+      currentUser: null,
+      login: (user) => set({ currentUser: user }),
+      logout: () => set({ currentUser: null }),
+    }),
+    { name: "virgo-auth" }
+  )
+);
 
 // ─── CRM Store ────────────────────────────────────────────────────────────────
 interface CRMStore {
@@ -25,13 +31,18 @@ interface CRMStore {
   moveLeadStatus: (id: string, status: Lead["status"]) => void;
 }
 
-export const useCRMStore = create<CRMStore>((set) => ({
-  leads: MOCK_LEADS,
-  addLead: (lead) => set((s) => ({ leads: [...s.leads, lead] })),
-  updateLead: (id, data) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, ...data, updatedAt: new Date().toISOString() } : l)) })),
-  deleteLead: (id) => set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
-  moveLeadStatus: (id, status) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, status, updatedAt: new Date().toISOString() } : l)) })),
-}));
+export const useCRMStore = create<CRMStore>()(
+  persist(
+    (set) => ({
+      leads: MOCK_LEADS,
+      addLead: (lead) => set((s) => ({ leads: [...s.leads, lead] })),
+      updateLead: (id, data) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, ...data, updatedAt: new Date().toISOString() } : l)) })),
+      deleteLead: (id) => set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
+      moveLeadStatus: (id, status) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, status, updatedAt: new Date().toISOString() } : l)) })),
+    }),
+    { name: "virgo-crm" }
+  )
+);
 
 // ─── Clients Store ─────────────────────────────────────────────────────────────
 interface ClientsStore {
@@ -41,12 +52,17 @@ interface ClientsStore {
   deleteClient: (id: string) => void;
 }
 
-export const useClientsStore = create<ClientsStore>((set) => ({
-  clients: MOCK_CLIENTS,
-  addClient: (client) => set((s) => ({ clients: [...s.clients, client] })),
-  updateClient: (id, data) => set((s) => ({ clients: s.clients.map((c) => (c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c)) })),
-  deleteClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
-}));
+export const useClientsStore = create<ClientsStore>()(
+  persist(
+    (set) => ({
+      clients: MOCK_CLIENTS,
+      addClient: (client) => set((s) => ({ clients: [...s.clients, client] })),
+      updateClient: (id, data) => set((s) => ({ clients: s.clients.map((c) => (c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c)) })),
+      deleteClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
+    }),
+    { name: "virgo-clients" }
+  )
+);
 
 // ─── Projects Store ───────────────────────────────────────────────────────────
 interface ProjectsStore {
@@ -56,12 +72,17 @@ interface ProjectsStore {
   deleteProject: (id: string) => void;
 }
 
-export const useProjectsStore = create<ProjectsStore>((set) => ({
-  projects: MOCK_PROJECTS,
-  addProject: (project) => set((s) => ({ projects: [...s.projects, project] })),
-  updateProject: (id, data) => set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)) })),
-  deleteProject: (id) => set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
-}));
+export const useProjectsStore = create<ProjectsStore>()(
+  persist(
+    (set) => ({
+      projects: MOCK_PROJECTS,
+      addProject: (project) => set((s) => ({ projects: [...s.projects, project] })),
+      updateProject: (id, data) => set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)) })),
+      deleteProject: (id) => set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
+    }),
+    { name: "virgo-projects" }
+  )
+);
 
 // ─── Deliveries Store ─────────────────────────────────────────────────────────
 interface DeliveriesStore {
@@ -71,12 +92,17 @@ interface DeliveriesStore {
   deleteDelivery: (id: string) => void;
 }
 
-export const useDeliveriesStore = create<DeliveriesStore>((set) => ({
-  deliveries: MOCK_DELIVERIES,
-  addDelivery: (d) => set((s) => ({ deliveries: [...s.deliveries, d] })),
-  updateDelivery: (id, data) => set((s) => ({ deliveries: s.deliveries.map((d) => (d.id === id ? { ...d, ...data, updatedAt: new Date().toISOString() } : d)) })),
-  deleteDelivery: (id) => set((s) => ({ deliveries: s.deliveries.filter((d) => d.id !== id) })),
-}));
+export const useDeliveriesStore = create<DeliveriesStore>()(
+  persist(
+    (set) => ({
+      deliveries: MOCK_DELIVERIES,
+      addDelivery: (d) => set((s) => ({ deliveries: [...s.deliveries, d] })),
+      updateDelivery: (id, data) => set((s) => ({ deliveries: s.deliveries.map((d) => (d.id === id ? { ...d, ...data, updatedAt: new Date().toISOString() } : d)) })),
+      deleteDelivery: (id) => set((s) => ({ deliveries: s.deliveries.filter((d) => d.id !== id) })),
+    }),
+    { name: "virgo-deliveries" }
+  )
+);
 
 // ─── Tasks Store ──────────────────────────────────────────────────────────────
 interface TasksStore {
@@ -87,13 +113,18 @@ interface TasksStore {
   moveTaskStatus: (id: string, status: Task["status"]) => void;
 }
 
-export const useTasksStore = create<TasksStore>((set) => ({
-  tasks: MOCK_TASKS,
-  addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
-  updateTask: (id, data) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t)) })),
-  deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
-  moveTaskStatus: (id, status) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, status, updatedAt: new Date().toISOString() } : t)) })),
-}));
+export const useTasksStore = create<TasksStore>()(
+  persist(
+    (set) => ({
+      tasks: MOCK_TASKS,
+      addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
+      updateTask: (id, data) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t)) })),
+      deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+      moveTaskStatus: (id, status) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, status, updatedAt: new Date().toISOString() } : t)) })),
+    }),
+    { name: "virgo-tasks" }
+  )
+);
 
 // ─── Products Store ───────────────────────────────────────────────────────────
 interface ProductsStore {
@@ -103,12 +134,17 @@ interface ProductsStore {
   deleteProduct: (id: string) => void;
 }
 
-export const useProductsStore = create<ProductsStore>((set) => ({
-  products: MOCK_PRODUCTS,
-  addProduct: (p) => set((s) => ({ products: [...s.products, p] })),
-  updateProduct: (id, data) => set((s) => ({ products: s.products.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)) })),
-  deleteProduct: (id) => set((s) => ({ products: s.products.filter((p) => p.id !== id) })),
-}));
+export const useProductsStore = create<ProductsStore>()(
+  persist(
+    (set) => ({
+      products: MOCK_PRODUCTS,
+      addProduct: (p) => set((s) => ({ products: [...s.products, p] })),
+      updateProduct: (id, data) => set((s) => ({ products: s.products.map((p) => (p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p)) })),
+      deleteProduct: (id) => set((s) => ({ products: s.products.filter((p) => p.id !== id) })),
+    }),
+    { name: "virgo-products" }
+  )
+);
 
 // ─── Users Store ──────────────────────────────────────────────────────────────
 interface UsersStore {
@@ -118,12 +154,17 @@ interface UsersStore {
   deleteUser: (id: string) => void;
 }
 
-export const useUsersStore = create<UsersStore>((set) => ({
-  users: MOCK_USERS,
-  addUser: (u) => set((s) => ({ users: [...s.users, u] })),
-  updateUser: (id, data) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)) })),
-  deleteUser: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
-}));
+export const useUsersStore = create<UsersStore>()(
+  persist(
+    (set) => ({
+      users: MOCK_USERS,
+      addUser: (u) => set((s) => ({ users: [...s.users, u] })),
+      updateUser: (id, data) => set((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...data } : u)) })),
+      deleteUser: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
+    }),
+    { name: "virgo-users" }
+  )
+);
 
 // ─── Pipeline Store ───────────────────────────────────────────────────────────
 export interface PipelineStage {
@@ -150,13 +191,18 @@ interface PipelineStore {
   reorderStages: (stages: PipelineStage[]) => void;
 }
 
-export const usePipelineStore = create<PipelineStore>((set) => ({
-  stages: DEFAULT_PIPELINE_STAGES,
-  addStage: (stage) => set((s) => ({ stages: [...s.stages, stage] })),
-  updateStage: (id, data) => set((s) => ({ stages: s.stages.map((st) => st.id === id ? { ...st, ...data } : st) })),
-  deleteStage: (id) => set((s) => ({ stages: s.stages.filter((st) => st.id !== id) })),
-  reorderStages: (stages) => set({ stages }),
-}));
+export const usePipelineStore = create<PipelineStore>()(
+  persist(
+    (set) => ({
+      stages: DEFAULT_PIPELINE_STAGES,
+      addStage: (stage) => set((s) => ({ stages: [...s.stages, stage] })),
+      updateStage: (id, data) => set((s) => ({ stages: s.stages.map((st) => st.id === id ? { ...st, ...data } : st) })),
+      deleteStage: (id) => set((s) => ({ stages: s.stages.filter((st) => st.id !== id) })),
+      reorderStages: (stages) => set({ stages }),
+    }),
+    { name: "virgo-pipeline" }
+  )
+);
 
 // ─── Automation Store ─────────────────────────────────────────────────────────
 export type AutomationTriggerType = "webhook" | "task";
@@ -189,18 +235,23 @@ interface AutomationStore {
   getAutomations: (stageId: string) => StageAutomation[];
 }
 
-export const useAutomationStore = create<AutomationStore>((set, get) => ({
-  configs: [],
-  setAutomations: (stageId, automations) =>
-    set((s) => {
-      const exists = s.configs.find((c) => c.stageId === stageId);
-      if (exists) {
-        return { configs: s.configs.map((c) => c.stageId === stageId ? { ...c, automations } : c) };
-      }
-      return { configs: [...s.configs, { stageId, automations }] };
+export const useAutomationStore = create<AutomationStore>()(
+  persist(
+    (set, get) => ({
+      configs: [],
+      setAutomations: (stageId, automations) =>
+        set((s) => {
+          const exists = s.configs.find((c) => c.stageId === stageId);
+          if (exists) {
+            return { configs: s.configs.map((c) => c.stageId === stageId ? { ...c, automations } : c) };
+          }
+          return { configs: [...s.configs, { stageId, automations }] };
+        }),
+      getAutomations: (stageId) => get().configs.find((c) => c.stageId === stageId)?.automations ?? [],
     }),
-  getAutomations: (stageId) => get().configs.find((c) => c.stageId === stageId)?.automations ?? [],
-}));
+    { name: "virgo-automations" }
+  )
+);
 
 // ─── Notifications Store ──────────────────────────────────────────────────────
 interface NotificationsStore {
