@@ -125,6 +125,39 @@ export const useUsersStore = create<UsersStore>((set) => ({
   deleteUser: (id) => set((s) => ({ users: s.users.filter((u) => u.id !== id) })),
 }));
 
+// ─── Pipeline Store ───────────────────────────────────────────────────────────
+export interface PipelineStage {
+  id: string;
+  label: string;
+  color: string; // tailwind border-top color class
+  order: number;
+}
+
+const DEFAULT_PIPELINE_STAGES: PipelineStage[] = [
+  { id: "novo", label: "Novo", color: "#3b82f6", order: 0 },
+  { id: "em_contato", label: "Em Contato", color: "#eab308", order: 1 },
+  { id: "proposta", label: "Proposta", color: "#a855f7", order: 2 },
+  { id: "negociacao", label: "Negociação", color: "#f97316", order: 3 },
+  { id: "ganho", label: "Ganho", color: "#22c55e", order: 4 },
+  { id: "perdido", label: "Perdido", color: "#ef4444", order: 5 },
+];
+
+interface PipelineStore {
+  stages: PipelineStage[];
+  addStage: (stage: PipelineStage) => void;
+  updateStage: (id: string, data: Partial<PipelineStage>) => void;
+  deleteStage: (id: string) => void;
+  reorderStages: (stages: PipelineStage[]) => void;
+}
+
+export const usePipelineStore = create<PipelineStore>((set) => ({
+  stages: DEFAULT_PIPELINE_STAGES,
+  addStage: (stage) => set((s) => ({ stages: [...s.stages, stage] })),
+  updateStage: (id, data) => set((s) => ({ stages: s.stages.map((st) => st.id === id ? { ...st, ...data } : st) })),
+  deleteStage: (id) => set((s) => ({ stages: s.stages.filter((st) => st.id !== id) })),
+  reorderStages: (stages) => set({ stages }),
+}));
+
 // ─── Notifications Store ──────────────────────────────────────────────────────
 interface NotificationsStore {
   notifications: Notification[];
