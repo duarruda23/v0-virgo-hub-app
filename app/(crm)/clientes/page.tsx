@@ -56,14 +56,14 @@ export default function ClientesPage() {
 
   const handleSave = async () => {
     if (!modal?.name || !modal?.email) return;
-    // Garante que responsibleId nunca é um ID inexistente
-    const responsibleId = modal.responsibleId && modal.responsibleId !== "u1"
-      ? modal.responsibleId
-      : (users[0]?.id ?? null);
+    // Usa o ID do responsável selecionado; se vazio/inválido, usa o primeiro usuário real
+    const validUser = users.find((u) => u.id === modal.responsibleId);
+    const responsibleId = validUser?.id ?? users[0]?.id ?? null;
+    const payload = { ...EMPTY, ...modal, responsibleId: responsibleId ?? "" };
     if (isEditing && modal.id) {
-      await updateClient(modal.id, { ...modal, responsibleId: responsibleId ?? undefined });
+      await updateClient(modal.id, payload);
     } else {
-      await createClient({ ...EMPTY, ...modal, responsibleId: responsibleId ?? "" });
+      await createClient(payload);
     }
     setModal(null);
   };
@@ -300,7 +300,12 @@ export default function ClientesPage() {
               </div>
               <div>
                 <FormLabel>Responsável</FormLabel>
-                <select value={modal.responsibleId ?? "u1"} onChange={(e) => setModal((p) => ({ ...p, responsibleId: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
+                <select
+                  value={users.find((u) => u.id === modal.responsibleId)?.id ?? users[0]?.id ?? ""}
+                  onChange={(e) => setModal((p) => ({ ...p, responsibleId: e.target.value }))}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white"
+                >
+                  {users.length === 0 && <option value="">Carregando...</option>}
                   {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </div>

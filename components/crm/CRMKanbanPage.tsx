@@ -402,17 +402,39 @@ export default function CRMKanbanPage() {
 
   // Converte lead em cliente automaticamente ao ganhar
   async function convertLeadToClient(lead: Lead) {
-    if (lead.convertedClientId) return;
-    const client = await createClient({
-      name: lead.name, email: lead.email, phone: lead.phone, company: lead.company,
-      cnpj: lead.cnpj, tradeName: lead.tradeName, stateRegistration: lead.stateRegistration,
-      municipalRegistration: lead.municipalRegistration, taxRegime: lead.taxRegime,
-      legalNature: lead.legalNature, foundingDate: lead.foundingDate,
-      status: "ativo", tier: "standard",
-      responsibleId: lead.responsibleId ?? currentUser?.id ?? "",
-      mrr: lead.value, tags: lead.tags ?? [], notes: lead.notes,
-    });
-    if (client?.id) await updateLead(lead.id, { convertedClientId: client.id });
+    if (lead.convertedClientId) return; // já convertido anteriormente
+    // responsibleId: usa o do lead, fallback para usuário logado, fallback para null
+    const responsibleId = lead.responsibleId || currentUser?.id || null;
+    try {
+      const client = await createClient({
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone || null,
+        company: lead.company || null,
+        cnpj: lead.cnpj || null,
+        tradeName: lead.tradeName || null,
+        stateRegistration: lead.stateRegistration || null,
+        municipalRegistration: lead.municipalRegistration || null,
+        taxRegime: lead.taxRegime || null,
+        legalNature: lead.legalNature || null,
+        foundingDate: lead.foundingDate || null,
+        status: "ativo",
+        tier: "standard",
+        responsibleId: responsibleId ?? "",
+        mrr: lead.value ?? 0,
+        tags: lead.tags ?? [],
+        notes: lead.notes || null,
+        segment: "",
+        city: "",
+        website: "",
+        address: "",
+      });
+      if (client?.id) {
+        await updateLead(lead.id, { convertedClientId: client.id });
+      }
+    } catch (err) {
+      console.error("[v0] Erro ao converter lead em cliente:", err);
+    }
   }
 
   // Executa gatilhos ao mover lead de etapa
@@ -473,13 +495,18 @@ export default function CRMKanbanPage() {
 
   const onDragStart = (id: string) => { dragItem.current = id; setDragging(id); };
   const onDragEnd = () => { setDragging(null); setDragOver(null); dragItem.current = null; };
+  const isWonStage = (stageId: string) => {
+    const stage = stages.find((s) => s.id === stageId);
+    return stageId === "ganho" || stage?.label?.toLowerCase().includes("ganho") || stage?.label?.toLowerCase().includes("won");
+  };
+
   const onDrop = (stageId: string) => {
     if (dragItem.current) {
       const lead = leads.find((l) => l.id === dragItem.current);
       if (lead && lead.status !== stageId) {
         updateLead(dragItem.current, { status: stageId as Lead["status"] });
         executeAutomations(lead, stageId);
-        if (stageId === "ganho") convertLeadToClient(lead);
+        if (isWonStage(stageId)) convertLeadToClient(lead);
       }
     }
     setDragOver(null); setDragging(null); dragItem.current = null;
@@ -493,7 +520,7 @@ export default function CRMKanbanPage() {
     if (isEditing && modalLead.id) {
       const prevLead = leads.find((l) => l.id === modalLead.id);
       await updateLead(modalLead.id, modalLead);
-      if (modalLead.status === "ganho" && prevLead?.status !== "ganho")
+      if (isWonStage(modalLead.status ?? "") && !isWonStage(prevLead?.status ?? ""))
         convertLeadToClient({ ...prevLead!, ...modalLead } as Lead);
     } else {
       const newLead = await createLead({
@@ -509,7 +536,7 @@ export default function CRMKanbanPage() {
       });
       if (newLead?.id) {
         executeAutomations(newLead, newLead.status);
-        if (newLead.status === "ganho") convertLeadToClient(newLead);
+        if (isWonStage(newLead.status)) convertLeadToClient(newLead);
       }
     }
     setModalLead(null);
