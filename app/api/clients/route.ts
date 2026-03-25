@@ -11,11 +11,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(rows.map(dbToClient));
 }
 
+// Converte qualquer string vazia/inválida para null em campos de data
+export function toDateOrNull(val: unknown): string | null {
+  if (!val || typeof val !== "string" || val.trim() === "") return null;
+  return val.trim();
+}
+
 export async function POST(req: NextRequest) {
   const b = await req.json();
   const id = generateId("c");
-  // Converte strings vazias em null para campos de data
-  const foundingDate = b.foundingDate && b.foundingDate.trim() !== "" ? b.foundingDate : null;
+  const foundingDate = toDateOrNull(b.foundingDate);
   const rows = await sql`
     INSERT INTO clients (
       id, name, email, phone, company, cnpj, trade_name, state_registration,

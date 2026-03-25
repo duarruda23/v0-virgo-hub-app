@@ -309,10 +309,10 @@ export default function ProjetosPage() {
 
   const handleSave = async () => {
     if (!modal?.name) return;
+    // clientId pode ser nulo (FK foi removida do banco) — apenas garante que não envia ID fictício
     const validClientId = clients.find((c) => c.id === modal.clientId)?.id ?? clients[0]?.id ?? null;
     const validManagerId = users.find((u) => u.id === modal.managerId)?.id ?? users[0]?.id ?? null;
-    if (!validClientId) return;
-    const payload = { ...EMPTY, ...modal, clientId: validClientId, managerId: validManagerId ?? "" };
+    const payload = { ...EMPTY, ...modal, clientId: validClientId ?? "", managerId: validManagerId ?? "" };
 
     if (isEditing && modal.id) {
       await updateProject(modal.id, payload);
@@ -642,7 +642,7 @@ export default function ProjetosPage() {
             {/* Footer */}
             <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
               <button onClick={() => { setModal(null); setAppliedTemplate(null); }} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button onClick={handleSave} disabled={!modal.name || !modal.clientId}
+              <button onClick={handleSave} disabled={!modal.name}
                 className="px-5 py-2 bg-black text-yellow-400 text-sm font-bold rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors">
                 {isEditing ? "Salvar" : "Criar Projeto"}
               </button>
