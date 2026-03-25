@@ -1,4 +1,4 @@
-// projects-route-v4 — força recompilação Turbopack
+// projects-route-v5 — due_date nullable no banco, toDate sanitiza strings vazias
 import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 
