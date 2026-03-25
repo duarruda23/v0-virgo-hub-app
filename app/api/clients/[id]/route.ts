@@ -5,6 +5,8 @@ import { dbToClient } from "@/app/api/clients/route";
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const b = await req.json();
+  // Converte strings vazias em null para campos de data
+  const foundingDate = b.foundingDate && b.foundingDate.trim() !== "" ? b.foundingDate : undefined;
   const rows = await sql`
     UPDATE clients SET
       name                   = COALESCE(${b.name ?? null}, name),
@@ -17,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       municipal_registration = COALESCE(${b.municipalRegistration ?? null}, municipal_registration),
       tax_regime             = COALESCE(${b.taxRegime ?? null}, tax_regime),
       legal_nature           = COALESCE(${b.legalNature ?? null}, legal_nature),
-      founding_date          = COALESCE(${b.foundingDate ?? null}, founding_date),
+      founding_date          = ${foundingDate !== undefined ? foundingDate : sql`founding_date`},
       website                = COALESCE(${b.website ?? null}, website),
       status                 = COALESCE(${b.status ?? null}, status),
       tier                   = COALESCE(${b.tier ?? null}, tier),

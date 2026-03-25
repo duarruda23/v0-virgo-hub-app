@@ -14,6 +14,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const b = await req.json();
   const id = generateId("c");
+  // Converte strings vazias em null para campos de data
+  const foundingDate = b.foundingDate && b.foundingDate.trim() !== "" ? b.foundingDate : null;
   const rows = await sql`
     INSERT INTO clients (
       id, name, email, phone, company, cnpj, trade_name, state_registration,
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
       ${id}, ${b.name}, ${b.email}, ${b.phone ?? null}, ${b.company ?? null},
       ${b.cnpj ?? null}, ${b.tradeName ?? null}, ${b.stateRegistration ?? null},
       ${b.municipalRegistration ?? null}, ${b.taxRegime ?? null}, ${b.legalNature ?? null},
-      ${b.foundingDate ?? null}, ${b.website ?? null},
+      ${foundingDate}, ${b.website ?? null},
       ${b.status ?? "ativo"}, ${b.tier ?? "standard"}, ${b.segment ?? null},
       ${b.responsibleId ?? null}, ${b.address ?? null}, ${b.city ?? null},
       ${b.notes ?? null}, ${b.tags ?? []}, ${b.mrr ?? 0}
