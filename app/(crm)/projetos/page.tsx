@@ -496,10 +496,10 @@ export default function ProjetosPage() {
               <div>
                 <div className="flex justify-between mb-1.5">
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Progresso</span>
-                  <span className="text-sm font-black text-gray-900">{detail.progress}%</span>
+                  <span className="text-sm font-black text-gray-900">{total > 0 ? Math.round((done / total) * 100) : 0}%</span>
                 </div>
                 <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${detail.progress}%` }} />
+                  <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${total > 0 ? Math.round((done / total) * 100) : 0}%` }} />
                 </div>
               </div>
               {detail.description && (
