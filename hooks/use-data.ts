@@ -299,3 +299,84 @@ export async function deleteChecklistItem(id: string, projectId: string) {
   await fetch(`/api/checklist/${id}`, { method: "DELETE" });
   mutate(`/api/checklist?projectId=${projectId}`);
 }
+
+// ─── Project Templates ────────────────────────────────────────────────────────
+export interface TemplateTask {
+  id: string;
+  templateId: string;
+  title: string;
+  description?: string;
+  assigneeId?: string | null;
+  priority: string;
+  dueDays: number;
+  position: number;
+  deliverable?: string | null;
+  createdAt?: string;
+}
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  color: string;
+  icon: string;
+  tasks: TemplateTask[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function useProjectTemplates() {
+  const { data, error, isLoading } = useSWR<ProjectTemplate[]>("/api/templates", fetcher);
+  return { templates: data ?? [], error, isLoading };
+}
+
+export async function createProjectTemplate(data: Partial<ProjectTemplate>) {
+  const res = await fetch("/api/templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate("/api/templates");
+  return json as ProjectTemplate;
+}
+
+export async function updateProjectTemplate(id: string, data: Partial<ProjectTemplate>) {
+  await fetch(`/api/templates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  mutate("/api/templates");
+}
+
+export async function deleteProjectTemplate(id: string) {
+  await fetch(`/api/templates/${id}`, { method: "DELETE" });
+  mutate("/api/templates");
+}
+
+export async function addTemplateTask(templateId: string, data: Partial<TemplateTask>) {
+  const res = await fetch(`/api/templates/${templateId}/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate("/api/templates");
+  return json as TemplateTask;
+}
+
+export async function updateTemplateTask(taskId: string, data: Partial<TemplateTask>) {
+  await fetch(`/api/template-tasks/${taskId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  mutate("/api/templates");
+}
+
+export async function deleteTemplateTask(taskId: string) {
+  await fetch(`/api/template-tasks/${taskId}`, { method: "DELETE" });
+  mutate("/api/templates");
+}

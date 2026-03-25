@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, UserCircle, FolderKanban,
   PackageSearch, CheckSquare, BarChart3, Settings,
-  Boxes, Truck, BookOpen, ChevronRight, LogOut
+  Boxes, Truck, BookOpen, ChevronRight, LogOut, LayoutTemplate
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/crm", label: "CRM / Pipeline", icon: UserCircle },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/projetos", label: "Projetos", icon: FolderKanban },
+  { href: "/templates", label: "Templates", icon: LayoutTemplate },
   { href: "/entregas", label: "Entregas", icon: Truck },
   { href: "/produtos", label: "Produtos", icon: Boxes },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
