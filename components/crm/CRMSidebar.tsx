@@ -48,8 +48,8 @@ export function CRMSidebar() {
             <span className="font-black text-black text-sm">V</span>
           </div>
           <div>
-            <p className="font-bold text-white text-sm leading-none">Virgo Hub</p>
-            <p className="text-white/40 text-xs mt-0.5">Marketing Digital</p>
+            <p className="font-bold text-white text-sm leading-none">TDL Hub</p>
+            <p className="text-white/40 text-xs mt-0.5">CRM Geral</p>
           </div>
         </div>
       </div>
