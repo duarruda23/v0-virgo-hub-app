@@ -380,3 +380,56 @@ export async function deleteTemplateTask(taskId: string) {
   await fetch(`/api/template-tasks/${taskId}`, { method: "DELETE" });
   mutate("/api/templates");
 }
+
+// ─── Financial Entries ────────────────────────────────────────────────────────
+export interface FinancialEntry {
+  id: string;
+  clientId?: string | null;
+  projectId?: string | null;
+  type: "receita" | "despesa";
+  category: "mrr" | "avulso" | "bonus" | "comissao" | "ajuste" | "desconto" | "reembolso" | "parcela";
+  description: string;
+  amount: number;
+  status: "pendente" | "pago" | "atrasado" | "cancelado";
+  dueDate?: string | null;
+  paidAt?: string | null;
+  recurrent: boolean;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function useFinancialEntries(params?: { clientId?: string; month?: string }) {
+  const query = params?.clientId
+    ? `/api/financial?clientId=${params.clientId}`
+    : params?.month
+    ? `/api/financial?month=${params.month}`
+    : "/api/financial";
+  const { data, error, isLoading } = useSWR<FinancialEntry[]>(query, fetcher);
+  return { entries: data ?? [], error, isLoading };
+}
+
+export async function createFinancialEntry(data: Partial<FinancialEntry>) {
+  const res = await fetch("/api/financial", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate("/api/financial");
+  return json as FinancialEntry;
+}
+
+export async function updateFinancialEntry(id: string, data: Partial<FinancialEntry>) {
+  await fetch(`/api/financial/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  mutate("/api/financial");
+}
+
+export async function deleteFinancialEntry(id: string) {
+  await fetch(`/api/financial/${id}`, { method: "DELETE" });
+  mutate("/api/financial");
+}

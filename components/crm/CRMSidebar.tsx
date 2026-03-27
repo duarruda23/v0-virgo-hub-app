@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, UserCircle, FolderKanban,
   PackageSearch, CheckSquare, BarChart3, Settings,
-  Boxes, Truck, BookOpen, ChevronRight, LogOut, LayoutTemplate
+  Boxes, Truck, BookOpen, ChevronRight, LogOut, LayoutTemplate, Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/produtos", label: "Produtos", icon: Boxes },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
   { href: "/equipe", label: "Equipe", icon: PackageSearch },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
 ];
 
