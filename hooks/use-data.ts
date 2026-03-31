@@ -458,6 +458,95 @@ export async function deleteTemplateTask(taskId: string) {
   mutate("/api/templates");
 }
 
+// ─── Pauta ────────────────────────────────────────────────────────────────────
+export interface PautaDeliveryType {
+  id: string;
+  name: string;
+  category: "video" | "design" | "content" | "general";
+  sort_order: number;
+  is_active: boolean;
+}
+
+export interface PautaItem {
+  id: string;
+  pauta_month_id: string;
+  client_id: string;
+  delivery_type_id: string;
+  is_completed: boolean;
+  completed_at?: string | null;
+  assigned_to?: string | null;
+  notes?: string | null;
+  created_at?: string;
+}
+
+export interface PautaClientConfig {
+  id: string;
+  pauta_month_id: string;
+  client_id: string;
+  qty_videos: number;
+  qty_designs: number;
+  has_landing_page: boolean;
+}
+
+export interface PautaMonth {
+  id: string;
+  month: number;
+  year: number;
+  label?: string;
+}
+
+export interface PautaData {
+  month: PautaMonth;
+  deliveryTypes: PautaDeliveryType[];
+  items: PautaItem[];
+  configs: PautaClientConfig[];
+}
+
+export function usePauta(month: number, year: number) {
+  const key = `/api/pauta?month=${month}&year=${year}`;
+  const { data, error, isLoading } = useSWR<PautaData>(key, fetcher);
+  return { pauta: data, error, isLoading, mutate: () => mutate(key) };
+}
+
+export function usePautaMonths() {
+  const { data, error, isLoading } = useSWR<PautaMonth[]>("/api/pauta", fetcher);
+  return { months: data ?? [], error, isLoading };
+}
+
+export async function upsertPautaItem(data: {
+  pautaMonthId: string; clientId: string; deliveryTypeId: string;
+  isCompleted?: boolean; assignedTo?: string | null; notes?: string | null;
+}) {
+  const res = await fetch("/api/pauta", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate(`/api/pauta?month=${json.pauta_month_id}`);
+  return json as PautaItem;
+}
+
+export async function upsertPautaConfig(data: {
+  pautaMonthId: string; clientId: string;
+  qtyVideos?: number; qtyDesigns?: number; hasLandingPage?: boolean;
+}) {
+  const res = await fetch("/api/pauta", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...data, _type: "config" }),
+  });
+  return res.json() as Promise<PautaClientConfig>;
+}
+
+export async function togglePautaItem(id: string, isCompleted: boolean) {
+  await fetch(`/api/pauta/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isCompleted }),
+  });
+}
+
 // ─── Financial Entries ────────────────────────────────────────────────────────
 export interface FinancialEntry {
   id: string;

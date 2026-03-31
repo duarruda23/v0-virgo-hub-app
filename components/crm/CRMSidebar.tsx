@@ -4,25 +4,35 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, UserCircle, FolderKanban,
   PackageSearch, CheckSquare, BarChart3, Settings,
-  Boxes, Truck, BookOpen, ChevronRight, LogOut, LayoutTemplate, Wallet
+  Boxes, Truck, BookOpen, ChevronRight, LogOut, LayoutTemplate, Wallet, CalendarDays
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/store";
 import { getInitials } from "@/lib/utils-crm";
+import type { Role } from "@/lib/types";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/crm", label: "CRM / Pipeline", icon: UserCircle },
-  { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/projetos", label: "Projetos", icon: FolderKanban },
-  { href: "/templates", label: "Templates", icon: LayoutTemplate },
-  { href: "/entregas", label: "Entregas", icon: Truck },
-  { href: "/produtos", label: "Produtos", icon: Boxes },
-  { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
-  { href: "/equipe", label: "Equipe", icon: PackageSearch },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+type NavItem = { href: string; label: string; icon: React.ElementType; minRole?: Role };
+
+const NAV_ITEMS: NavItem[] = [
+  { href: "/dashboard",   label: "Dashboard",     icon: LayoutDashboard },
+  { href: "/pauta",       label: "Pauta",          icon: CalendarDays },
+  { href: "/crm",         label: "CRM / Pipeline", icon: UserCircle },
+  { href: "/clientes",    label: "Clientes",       icon: Users },
+  { href: "/projetos",    label: "Projetos",       icon: FolderKanban },
+  { href: "/templates",   label: "Templates",      icon: LayoutTemplate,  minRole: "leader" },
+  { href: "/entregas",    label: "Entregas",       icon: Truck },
+  { href: "/produtos",    label: "Produtos",       icon: Boxes,           minRole: "leader" },
+  { href: "/tarefas",     label: "Tarefas",        icon: CheckSquare },
+  { href: "/equipe",      label: "Equipe",         icon: PackageSearch,   minRole: "leader" },
+  { href: "/financeiro",  label: "Financeiro",     icon: Wallet,          minRole: "admin" },
+  { href: "/relatorios",  label: "Relatórios",     icon: BarChart3,       minRole: "leader" },
 ];
+
+const ROLE_RANK: Record<Role, number> = { admin: 3, leader: 2, collaborator: 1 };
+function canAccess(userRole: Role, minRole?: Role) {
+  if (!minRole) return true;
+  return ROLE_RANK[userRole] >= ROLE_RANK[minRole];
+}
 
 const BOTTOM_ITEMS = [
   { href: "/configuracoes", label: "Configurações", icon: Settings },
@@ -57,7 +67,7 @@ export function CRMSidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         <p className="text-white/30 text-xs font-semibold uppercase tracking-widest px-3 mb-3">Menu</p>
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.filter(({ minRole }) => canAccess((currentUser?.role as Role) ?? "collaborator", minRole)).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
           return (
             <Link
