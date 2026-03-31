@@ -1,8 +1,8 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Plus, X, Search, Mail, Phone, Shield, User, Users, Copy, Check, KeyRound, RefreshCw } from "lucide-react";
+import { Plus, X, Search, Mail, Phone, Shield, User, Users, Copy, Check, KeyRound, RefreshCw, Gauge, ChevronDown, ChevronUp, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUsers, createUser, updateUser, deleteUser, useTasks, useProjects } from "@/hooks/use-data";
+import { useUsers, createUser, updateUser, deleteUser, useTasks, useProjects, updateUserCapacity } from "@/hooks/use-data";
 import type { User as UserType, Role } from "@/lib/types";
 import { getInitials, generateId } from "@/lib/utils-crm";
 
@@ -50,6 +50,7 @@ export default function EquipePage() {
   const { tasks } = useTasks();
   const { projects } = useProjects();
 
+  const [activeTab, setActiveTab] = useState<"membros" | "capacidade">("membros");
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState<Role | "all">("all");
   const [modal, setModal] = useState<(Partial<UserType> & { tempPassword?: string }) | null>(null);
@@ -59,6 +60,7 @@ export default function EquipePage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [resetPass, setResetPass] = useState("");
   const [showResetPass, setShowResetPass] = useState(false);
+  const [capacityEdit, setCapacityEdit] = useState<Record<string, number>>({});
 
   const filtered = useMemo(() => users.filter((u) => {
     const matchSearch = search === "" ||
@@ -126,6 +128,29 @@ export default function EquipePage() {
         <StatCard icon={<User size={16} />} label="Colaboradores" value={roleCount("collaborator")} color="bg-gray-700 text-white" />
       </div>
 
+      {/* Tab Switcher */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-1 border-2 border-black rounded-lg overflow-hidden bg-white p-1 shadow-[2px_2px_0px_#000]">
+          {([
+            { key: "membros", label: "Membros", icon: <Users size={13} /> },
+            { key: "capacidade", label: "Capacidade", icon: <Gauge size={13} /> },
+          ] as const).map((t) => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)}
+              className={cn("flex items-center gap-1.5 text-xs px-4 py-2 rounded font-bold transition-colors",
+                activeTab === t.key ? "bg-black text-yellow-400" : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              )}>
+              {t.icon}{t.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={openNew}
+          className="flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold border-2 border-black shadow-[2px_2px_0px_#000] hover:bg-gray-800 transition-colors">
+          <Plus size={15} /> Convidar Membro
+        </button>
+      </div>
+
+      {/* ── ABA: MEMBROS ── */}
+      {activeTab === "membros" && (<>
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="relative">
@@ -143,10 +168,6 @@ export default function EquipePage() {
             </button>
           ))}
         </div>
-        <button onClick={openNew}
-          className="ml-auto flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors">
-          <Plus size={15} /> Convidar Membro
-        </button>
       </div>
 
       {/* Grid */}
@@ -215,6 +236,102 @@ export default function EquipePage() {
           </div>
         )}
       </div>
+      </>)}
+
+      {/* ── ABA: CAPACIDADE ── */}
+      {activeTab === "capacidade" && (
+        <div className="space-y-4">
+          <div className="bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_#000] overflow-hidden">
+            <div className="px-5 py-3 bg-black flex items-center justify-between">
+              <span className="text-sm font-black text-yellow-400">Capacidade de Produção por Membro</span>
+              <span className="text-xs text-white/50">Clique para editar horas/dia</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {users.filter((u) => u.active).map((user) => {
+                const stats = getUserStats(user.id);
+                const capacity = capacityEdit[user.id] ?? ((user as UserType & { dailyCapacity?: number }).dailyCapacity ?? 8);
+                const used = Math.min(stats.openTasks * 1.5, capacity);
+                const pct = Math.min(Math.round((used / capacity) * 100), 100);
+                const status = pct >= 90 ? "sobrecarregado" : pct >= 65 ? "ocupado" : "disponível";
+                const barColor = pct >= 90 ? "bg-red-500" : pct >= 65 ? "bg-yellow-400" : "bg-green-400";
+                const badgeColor = pct >= 90 ? "bg-red-100 text-red-700" : pct >= 65 ? "bg-yellow-100 text-yellow-800" : "bg-green-100 text-green-700";
+                return (
+                  <div key={user.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-black", ROLE_ICON_BG[user.role], user.role === "admin" ? "text-black" : "text-white")}>
+                        {getInitials(user.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-bold text-sm text-gray-900 truncate">{user.name}</p>
+                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0", badgeColor)}>{status}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-gray-400">{stats.openTasks} tarefas abertas · {pct}% da capacidade</p>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setCapacityEdit((p) => ({ ...p, [user.id]: Math.max(1, capacity - 1) }))}
+                              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors">
+                              <ChevronDown size={14} />
+                            </button>
+                            <span className="text-xs font-bold text-gray-900 w-12 text-center">{capacity}h/dia</span>
+                            <button onClick={() => setCapacityEdit((p) => ({ ...p, [user.id]: Math.min(24, capacity + 1) }))}
+                              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors">
+                              <ChevronUp size={14} />
+                            </button>
+                            {capacityEdit[user.id] !== undefined && (
+                              <button onClick={async () => {
+                                await updateUserCapacity(user.id, capacity);
+                                setCapacityEdit((p) => { const n = { ...p }; delete n[user.id]; return n; });
+                              }} className="ml-1 px-2 py-0.5 bg-black text-yellow-400 rounded text-[10px] font-bold hover:bg-gray-800 transition-colors">
+                                Salvar
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recomendação de delegação */}
+          <div className="bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_#000] overflow-hidden">
+            <div className="px-5 py-3 border-b-2 border-gray-100 flex items-center gap-2">
+              <ArrowRight size={15} className="text-yellow-500" />
+              <span className="text-sm font-black">Para delegar agora: membros com mais espaço</span>
+            </div>
+            <div className="p-4 grid sm:grid-cols-2 gap-3">
+              {users.filter((u) => u.active).map((user) => {
+                const stats = getUserStats(user.id);
+                const capacity = (user as UserType & { dailyCapacity?: number }).dailyCapacity ?? 8;
+                const used = Math.min(stats.openTasks * 1.5, capacity);
+                return { user, free: capacity - used, pct: Math.round((used / capacity) * 100) };
+              }).sort((a, b) => b.free - a.free).slice(0, 4).map(({ user, free, pct }) => (
+                <div key={user.id} className={cn("flex items-center gap-3 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000]",
+                  pct < 50 ? "bg-green-50" : pct < 80 ? "bg-yellow-50" : "bg-red-50"
+                )}>
+                  <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-black", ROLE_ICON_BG[user.role], user.role === "admin" ? "text-black" : "text-white")}>
+                    {getInitials(user.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm text-gray-900 truncate">{user.name}</p>
+                    <p className="text-xs text-gray-500">{user.department}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-lg font-black text-gray-900">{Math.max(0, Math.round(free))}h</p>
+                    <p className="text-[10px] text-gray-400">livres</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Invite Confirmation Card ───────────────────────────────── */}
       {inviteConfirm && (
