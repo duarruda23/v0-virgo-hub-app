@@ -13,10 +13,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       position    = COALESCE(${b.position ?? null}, position),
       phone       = COALESCE(${b.phone ?? null}, phone),
       active      = COALESCE(${b.active ?? null}, active),
-      password    = CASE WHEN ${b.password ?? null} IS NOT NULL THEN ${b.password ?? null} ELSE password END,
-      updated_at  = NOW()
+      password        = CASE WHEN ${b.password ?? null} IS NOT NULL THEN ${b.password ?? null} ELSE password END,
+      daily_capacity  = COALESCE(${b.dailyCapacity ?? null}, daily_capacity),
+      updated_at      = NOW()
     WHERE id = ${id}
-    RETURNING id, name, email, role, avatar, department, position, phone, active, created_at, updated_at
+    RETURNING id, name, email, role, avatar, department, position, phone, active, daily_capacity, created_at, updated_at
   `;
   if (!rows[0]) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
   return NextResponse.json(rows[0]);

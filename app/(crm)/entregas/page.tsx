@@ -1,244 +1,273 @@
 "use client";
-import { useState, useMemo } from "react";
+// entregas-page-v2
+import { useState, useMemo, useCallback } from "react";
 import { ClientOnly } from "@/components/crm/ClientOnly";
-import { Plus, X, Search, Calendar, Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useDeliveries, createDelivery, updateDelivery, deleteDelivery, useProjects, useUsers } from "@/hooks/use-data";
-import type { Delivery, DeliveryStatus, DeliveryType } from "@/lib/types";
 import {
-  DELIVERY_STATUS_LABELS, DELIVERY_STATUS_COLORS,
-  formatDate, getInitials, generateId
-} from "@/lib/utils-crm";
+  Plus, X, Search, ChevronDown, ChevronRight, Check, Circle,
+  Clock, Loader2, CheckCircle2, Users, Film, Image, Globe,
+  Upload, Camera, CalendarCheck, FileCheck, ClipboardList,
+  Pencil, Trash2, RefreshCw, LayoutTemplate, Play
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  useDeliveries, createDelivery, updateDelivery, deleteDelivery,
+  useClients, useUsers,
+  useDeliveryTasks, upsertDeliveryTask, upsertDeliverySubtask,
+  updateDeliveryTask, updateDeliverySubtask,
+} from "@/hooks/use-data";
+import type { DeliveryTask, DeliverySubtask } from "@/hooks/use-data";
+import { getInitials } from "@/lib/utils-crm";
 
-const TYPE_LABELS: Record<DeliveryType, string> = {
-  post_feed: "Post Feed", post_stories: "Stories", reels: "Reels",
-  video: "Vídeo", banner: "Banner", copy: "Copy",
-  relatorio: "Relatório", landing_page: "Landing Page", outro: "Outro",
+// ─── Constantes de tarefas fixas obrigatórias ────────────────────────────────
+const FIXED_TASKS: { key: string; title: string; icon: React.ElementType }[] = [
+  { key: "planejamento",           title: "Planejamento",                     icon: ClipboardList },
+  { key: "aprovacao_planejamento", title: "Aprovação do Planejamento",        icon: FileCheck },
+  { key: "marcacao_gravacao",      title: "Marcação de Gravação",             icon: CalendarCheck },
+  { key: "gravacao",               title: "Gravação",                         icon: Camera },
+  { key: "upload_drive",           title: "Upload no Drive",                  icon: Upload },
+];
+
+const LP_SUBTASKS: { key: string; title: string }[] = [
+  { key: "criacao_visual",  title: "Criação Visual" },
+  { key: "copy",            title: "Copy" },
+  { key: "desenvolvimento", title: "Desenvolvimento" },
+  { key: "aprovacao",       title: "Aprovação do Cliente" },
+  { key: "finalizacao",     title: "Finalização / Go Live" },
+];
+
+const STATUS_CYCLE: Record<DeliveryTask["status"], DeliveryTask["status"]> = {
+  pendente: "em_andamento",
+  em_andamento: "concluido",
+  concluido: "pendente",
 };
 
-const ALL_STATUSES: DeliveryStatus[] = ["pendente", "em_producao", "em_revisao", "aprovado", "entregue", "cancelado"];
-
-const EMPTY: Omit<Delivery, "id" | "createdAt" | "updatedAt"> = {
-  title: "", description: "", projectId: "p1", type: "post_feed",
-  status: "pendente", responsibleId: "u1",
-  dueDate: new Date().toISOString().split("T")[0],
+const STATUS_ICON: Record<DeliveryTask["status"], React.ElementType> = {
+  pendente: Circle,
+  em_andamento: Loader2,
+  concluido: CheckCircle2,
 };
 
-export default function EntregasPage() {
-  const { deliveries } = useDeliveries();
-  const { projects } = useProjects();
-  const { users } = useUsers();
+const STATUS_COLOR: Record<DeliveryTask["status"], string> = {
+  pendente: "text-gray-300",
+  em_andamento: "text-yellow-500",
+  concluido: "text-green-500",
+};
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<DeliveryStatus | "todos">("todos");
-  const [modal, setModal] = useState<Partial<Delivery> | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [view, setView] = useState<"kanban" | "table">("kanban");
+const STATUS_LABEL: Record<DeliveryTask["status"], string> = {
+  pendente: "Pendente",
+  em_andamento: "Em andamento",
+  concluido: "Concluído",
+};
 
-  const filtered = useMemo(() => {
-    let list = [...deliveries];
-    if (search) list = list.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()));
-    if (statusFilter !== "todos") list = list.filter((d) => d.status === statusFilter);
-    return list;
-  }, [deliveries, search, statusFilter]);
+function formatMonth(m: string) {
+  if (!m) return "";
+  const [y, mo] = m.split("-");
+  const months = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  return `${months[parseInt(mo) - 1]} ${y}`;
+}
 
-  const getByStatus = (s: DeliveryStatus) => filtered.filter((d) => d.status === s);
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
-  const handleSave = async () => {
-    if (!modal?.title) return;
-    if (isEditing && modal.id) {
-      await updateDelivery(modal.id, modal);
-    } else {
-      await createDelivery({ ...EMPTY, ...modal });
-    }
-    setModal(null);
-  };
+// ─── Inicializa as tarefas padrão para uma entrega nova ──────────────────────
+async function initDefaultTasks(deliveryId: string, variables: {
+  designs: number; videos: number; landingPage: boolean;
+}) {
+  const tasks: Partial<DeliveryTask>[] = FIXED_TASKS.map((t, i) => ({
+    deliveryId, type: "fixed" as const, key: t.key, title: t.title,
+    status: "pendente" as const, position: i,
+  }));
+  if (variables.videos > 0) {
+    tasks.push({ deliveryId, type: "variable", key: "videos", title: `Vídeos (${variables.videos})`, status: "pendente", quantity: variables.videos, enabled: true, position: 10 });
+  }
+  if (variables.designs > 0) {
+    tasks.push({ deliveryId, type: "variable", key: "designs", title: `Designs (${variables.designs})`, status: "pendente", quantity: variables.designs, enabled: true, position: 11 });
+  }
+  if (variables.landingPage) {
+    tasks.push({ deliveryId, type: "landing_page", key: "landing_page", title: "Landing Page", status: "pendente", enabled: true, position: 12 });
+  }
+  await Promise.all(tasks.map((t) => upsertDeliveryTask(t)));
+
+  // Subtarefas de landing page
+  if (variables.landingPage) {
+    await Promise.all(LP_SUBTASKS.map((s, i) =>
+      upsertDeliverySubtask({ _subtask: true, deliveryId, parentKey: "landing_page", key: s.key, title: s.title, status: "pendente", position: i })
+    ));
+  }
+}
+
+// ─── Componente de status clicável ───────────────────────────────────────────
+function StatusButton({ status, onClick }: { status: DeliveryTask["status"]; onClick: () => void }) {
+  const Icon = STATUS_ICON[status];
+  return (
+    <button onClick={onClick} title={STATUS_LABEL[status]}
+      className={cn("transition-all hover:scale-110", STATUS_COLOR[status])}>
+      <Icon size={18} className={status === "em_andamento" ? "animate-spin" : ""} />
+    </button>
+  );
+}
+
+// ─── Barra de progresso de landing page ──────────────────────────────────────
+function LandingPageProgress({ subtasks }: { subtasks: DeliverySubtask[] }) {
+  const done = subtasks.filter((s) => s.status === "concluido").length;
+  const total = LP_SUBTASKS.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <div className="space-y-5">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar entrega..." className="pl-8 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white w-full focus:outline-none focus:border-yellow-400" />
+    <div className="mt-2 pl-6 border-l-2 border-yellow-300 space-y-1.5">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-bold text-yellow-700">Subprocesso Landing Page</span>
+        <span className="text-xs font-black text-gray-700">{pct}%</span>
+      </div>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+        <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      {subtasks.map((sub) => {
+        const Icon = STATUS_ICON[sub.status];
+        return (
+          <div key={sub.id} className="flex items-center gap-2 text-xs text-gray-600">
+            <Icon size={12} className={cn(STATUS_COLOR[sub.status], sub.status === "em_andamento" ? "animate-spin" : "")} />
+            <span className={sub.status === "concluido" ? "line-through text-gray-400" : ""}>{sub.title}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Painel de tarefas de uma entrega ────────────────────────────────────────
+function DeliveryTaskPanel({ delivery, users }: { delivery: { id: string; title: string }; users: Array<{ id: string; name: string }> }) {
+  const { tasks, subtasks, isLoading } = useDeliveryTasks(delivery.id);
+
+  const handleTaskStatus = useCallback(async (task: DeliveryTask) => {
+    const next = STATUS_CYCLE[task.status];
+    await updateDeliveryTask(task.id, { status: next, deliveryId: delivery.id });
+  }, [delivery.id]);
+
+  const handleSubStatus = useCallback(async (sub: DeliverySubtask) => {
+    const next = STATUS_CYCLE[sub.status];
+    await updateDeliverySubtask(sub.id, delivery.id, { status: next });
+  }, [delivery.id]);
+
+  const lpTask = tasks.find((t) => t.key === "landing_page");
+  const lpSubtasks = subtasks.filter((s) => s.parentKey === "landing_page");
+
+  const fixed = tasks.filter((t) => t.type === "fixed");
+  const variable = tasks.filter((t) => t.type === "variable");
+
+  const totalSteps = tasks.length + lpSubtasks.length;
+  const doneSteps = tasks.filter((t) => t.status === "concluido").length + lpSubtasks.filter((s) => s.status === "concluido").length;
+  const pct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : 0;
+
+  if (isLoading) return (
+    <div className="flex items-center justify-center py-6 text-gray-400">
+      <Loader2 size={16} className="animate-spin mr-2" /> Carregando tarefas...
+    </div>
+  );
+
+  if (tasks.length === 0) return (
+    <div className="py-6 text-center">
+      <p className="text-xs text-gray-400 mb-2">Nenhuma tarefa iniciada ainda.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* Barra de progresso geral */}
+      <div>
+        <div className="flex justify-between mb-1">
+          <span className="text-xs font-bold text-gray-500">Progresso geral</span>
+          <span className="text-xs font-black text-gray-800">{pct}%</span>
         </div>
-        <div className="flex border border-gray-200 rounded-lg overflow-hidden">
-          <button onClick={() => setView("kanban")} className={cn("px-3 py-2 text-xs font-semibold", view === "kanban" ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50")}>Kanban</button>
-          <button onClick={() => setView("table")} className={cn("px-3 py-2 text-xs font-semibold", view === "table" ? "bg-black text-yellow-400" : "bg-white text-gray-500 hover:bg-gray-50")}>Tabela</button>
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-400" : "bg-yellow-400")} style={{ width: `${pct}%` }} />
         </div>
-        <button onClick={() => { setModal({ ...EMPTY }); setIsEditing(false); }} className="ml-auto flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors">
-          <Plus size={15} /> Nova Entrega
-        </button>
       </div>
 
-      {/* Kanban View */}
-      {view === "kanban" && (
-        <ClientOnly>
-        <div className="flex gap-4 overflow-x-auto pb-2" style={{ minHeight: "400px" }}>
-          {ALL_STATUSES.filter((s) => s !== "cancelado").map((status) => {
-            const cards = getByStatus(status);
-            return (
-              <div key={status} className="flex-shrink-0 w-56 flex flex-col gap-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">{DELIVERY_STATUS_LABELS[status]}</span>
-                  <span className="text-xs bg-gray-200 text-gray-600 rounded-full w-5 h-5 flex items-center justify-center font-bold">{cards.length}</span>
+      {/* Tarefas fixas */}
+      {fixed.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Obrigatórias</p>
+          <div className="space-y-1">
+            {fixed.map((task) => {
+              const Def = FIXED_TASKS.find((f) => f.key === task.key);
+              const Icon = Def?.icon ?? Check;
+              return (
+                <div key={task.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-gray-50 group">
+                  <StatusButton status={task.status} onClick={() => handleTaskStatus(task)} />
+                  <Icon size={14} className="text-gray-400 flex-shrink-0" />
+                  <span className={cn("text-sm flex-1", task.status === "concluido" ? "line-through text-gray-400" : "text-gray-700")}>
+                    {task.title}
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  {cards.map((d) => {
-                    const project = projects.find((p) => p.id === d.projectId);
-                    const responsible = users.find((u) => u.id === d.responsibleId);
-                    const isLate = d.status !== "entregue" && new Date(d.dueDate) < new Date();
-                    return (
-                      <div key={d.id} className="bg-white rounded-lg border border-gray-200 p-3 hover:shadow-sm transition-all group">
-                        <div className="flex items-start justify-between gap-1 mb-2">
-                          <p className="text-xs font-semibold text-gray-900 leading-tight">{d.title}</p>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => { setModal({ ...d }); setIsEditing(true); }} className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={10} /></button>
-                            <button onClick={() => deleteDelivery(d.id)} className="p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={10} /></button>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mb-2">{TYPE_LABELS[d.type]}</p>
-                        {project && <p className="text-[10px] text-gray-500 truncate bg-gray-50 rounded px-1.5 py-0.5 mb-2">{project.name}</p>}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Calendar suppressHydrationWarning size={9} className={cn(isLate ? "text-red-500" : "text-gray-400")} />
-                            <span suppressHydrationWarning className={cn("text-[10px]", isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span>
-                          </div>
-                          {responsible && (
-                            <div className="w-5 h-5 rounded-full bg-gray-900 flex items-center justify-center" title={responsible.name}>
-                              <span className="text-[7px] font-bold text-yellow-400">{getInitials(responsible.name)}</span>
-                            </div>
-                          )}
-                        </div>
-                        {/* Change status buttons */}
-                        <div className="flex gap-1 mt-2 pt-2 border-t border-gray-100 flex-wrap">
-                          {ALL_STATUSES.filter((s) => s !== status && s !== "cancelado").map((s) => (
-                            <button key={s} onClick={() => updateDelivery(d.id, { status: s })} className="text-[9px] px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:border-yellow-400 hover:text-yellow-600 transition-colors">
-                              {DELIVERY_STATUS_LABELS[s]}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-        </ClientOnly>
       )}
 
-      {/* Table View */}
-      {view === "table" && (
-        <ClientOnly>
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Entrega</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Tipo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Projeto</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Prazo</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Responsável</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {filtered.map((d) => {
-                const project = projects.find((p) => p.id === d.projectId);
-                const responsible = users.find((u) => u.id === d.responsibleId);
-                const isLate = d.status !== "entregue" && d.status !== "cancelado" && new Date(d.dueDate) < new Date();
-                return (
-                  <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-gray-900">{d.title}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{TYPE_LABELS[d.type]}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-[180px] truncate">{project?.name ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={d.status}
-                        onChange={(e) => updateDelivery(d.id, { status: e.target.value as DeliveryStatus })}
-                        onClick={(e) => e.stopPropagation()}
-                        className={cn("text-xs px-2 py-0.5 rounded-full border font-medium cursor-pointer bg-transparent focus:outline-none", DELIVERY_STATUS_COLORS[d.status])}
-                      >
-                        {ALL_STATUSES.map((s) => <option key={s} value={s}>{DELIVERY_STATUS_LABELS[s]}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-xs"><span suppressHydrationWarning className={cn(isLate ? "text-red-500 font-bold" : "text-gray-400")}>{formatDate(d.dueDate)}</span></td>
-                    <td className="px-4 py-3">
-                      {responsible && (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-6 h-6 rounded-full bg-gray-900 flex items-center justify-center"><span className="text-[8px] font-bold text-yellow-400">{getInitials(responsible.name)}</span></div>
-                          <span className="text-xs text-gray-500 hidden lg:block">{responsible.name.split(" ")[0]}</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <button onClick={() => { setModal({ ...d }); setIsEditing(true); }} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"><Pencil size={13} /></button>
-                        <button onClick={() => deleteDelivery(d.id)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={13} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {filtered.length === 0 && <tr><td colSpan={7} className="text-center py-10 text-sm text-gray-400">Nenhuma entrega encontrada</td></tr>}
-            </tbody>
-          </table>
+      {/* Tarefas variáveis */}
+      {variable.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Variáveis</p>
+          <div className="space-y-1">
+            {variable.map((task) => {
+              const Icon = task.key === "videos" ? Film : task.key === "designs" ? Image : Globe;
+              return (
+                <div key={task.id} className="flex items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-gray-50">
+                  <StatusButton status={task.status} onClick={() => handleTaskStatus(task)} />
+                  <Icon size={14} className="text-gray-400 flex-shrink-0" />
+                  <span className={cn("text-sm flex-1", task.status === "concluido" ? "line-through text-gray-400" : "text-gray-700")}>
+                    {task.title}
+                  </span>
+                  {task.quantity && task.quantity > 1 && (
+                    <span className="text-xs bg-gray-100 text-gray-600 font-bold px-1.5 py-0.5 rounded">{task.quantity}x</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-        </ClientOnly>
       )}
 
-      {/* Modal */}
-      {modal !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setModal(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900">{isEditing ? "Editar Entrega" : "Nova Entrega"}</h3>
-              <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
+      {/* Landing page + subprocesso */}
+      {lpTask && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Landing Page</p>
+          <div className="py-1.5 px-2 rounded-lg hover:bg-gray-50">
+            <div className="flex items-center gap-2.5">
+              <StatusButton status={lpTask.status} onClick={() => handleTaskStatus(lpTask)} />
+              <Globe size={14} className="text-gray-400 flex-shrink-0" />
+              <span className={cn("text-sm flex-1", lpTask.status === "concluido" ? "line-through text-gray-400" : "text-gray-700")}>
+                Landing Page
+              </span>
             </div>
-            <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
-              <div><FormLabel>Título *</FormLabel><FormInput value={modal.title ?? ""} onChange={(v) => setModal((p) => ({ ...p, title: v }))} /></div>
-              <div><FormLabel>Descrição</FormLabel><textarea value={modal.description ?? ""} onChange={(e) => setModal((p) => ({ ...p, description: e.target.value }))} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 resize-none" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FormLabel>Projeto</FormLabel>
-                  <select value={modal.projectId ?? "p1"} onChange={(e) => setModal((p) => ({ ...p, projectId: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <FormLabel>Tipo</FormLabel>
-                  <select value={modal.type ?? "post_feed"} onChange={(e) => setModal((p) => ({ ...p, type: e.target.value as DeliveryType }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
-                    {(Object.keys(TYPE_LABELS) as DeliveryType[]).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <FormLabel>Status</FormLabel>
-                  <select value={modal.status ?? "pendente"} onChange={(e) => setModal((p) => ({ ...p, status: e.target.value as DeliveryStatus }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
-                    {ALL_STATUSES.map((s) => <option key={s} value={s}>{DELIVERY_STATUS_LABELS[s]}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <FormLabel>Responsável</FormLabel>
-                  <select value={modal.responsibleId ?? "u1"} onChange={(e) => setModal((p) => ({ ...p, responsibleId: e.target.value }))} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
-                </div>
-                <div><FormLabel>Prazo</FormLabel><FormInput value={modal.dueDate ?? ""} onChange={(v) => setModal((p) => ({ ...p, dueDate: v }))} type="date" /></div>
-                {modal.status === "entregue" && <div><FormLabel>Data Entrega</FormLabel><FormInput value={modal.deliveredAt ?? ""} onChange={(v) => setModal((p) => ({ ...p, deliveredAt: v }))} type="date" /></div>}
+            {lpSubtasks.length > 0 && (
+              <LandingPageProgress subtasks={lpSubtasks} />
+            )}
+            {lpSubtasks.length > 0 && lpSubtasks.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-2.5 mt-1 py-1 px-2 pl-6 rounded hover:bg-yellow-50"
+                style={{ display: "none" }}>
+                <StatusButton status={sub.status} onClick={() => handleSubStatus(sub)} />
+                <span className={cn("text-xs flex-1", sub.status === "concluido" ? "line-through text-gray-400" : "text-gray-600")}>
+                  {sub.title}
+                </span>
               </div>
-              {(modal.status === "em_revisao" || modal.status === "aprovado") && (
-                <div><FormLabel>Notas de Revisão</FormLabel><textarea value={modal.reviewNotes ?? ""} onChange={(e) => setModal((p) => ({ ...p, reviewNotes: e.target.value }))} rows={2} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 resize-none" /></div>
-              )}
-            </div>
-            <div className="px-5 py-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setModal(null)} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-              <button onClick={handleSave} disabled={!modal.title} className="px-5 py-2 bg-black text-yellow-400 text-sm font-bold rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors">
-                {isEditing ? "Salvar" : "Criar Entrega"}
-              </button>
+            ))}
+            {/* Subtarefas clicáveis */}
+            <div className="mt-2 pl-6 space-y-1">
+              {lpSubtasks.map((sub) => (
+                <div key={sub.id}
+                  className="flex items-center gap-2 cursor-pointer py-0.5 rounded hover:bg-yellow-50 px-1"
+                  onClick={() => handleSubStatus(sub)}>
+                  <StatusButton status={sub.status} onClick={() => handleSubStatus(sub)} />
+                  <span className={cn("text-xs", sub.status === "concluido" ? "line-through text-gray-400" : "text-gray-600")}>
+                    {sub.title}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -247,9 +276,303 @@ export default function EntregasPage() {
   );
 }
 
-function FormLabel({ children }: { children: React.ReactNode }) {
-  return <label className="block text-xs font-semibold text-gray-600 mb-1">{children}</label>;
+// ─── Card de uma entrega ──────────────────────────────────────────────────────
+function DeliveryCard({
+  delivery, users, onEdit, onDelete,
+}: {
+  delivery: Record<string, unknown>;
+  users: Array<{ id: string; name: string }>;
+  onEdit: (d: Record<string, unknown>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { tasks } = useDeliveryTasks(expanded ? (delivery.id as string) : null);
+  const done = tasks.filter((t) => t.status === "concluido").length;
+  const total = tasks.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  return (
+    <div className="bg-white border-2 border-black rounded-xl shadow-[3px_3px_0px_#000] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+        onClick={() => setExpanded((v) => !v)}>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900 truncate">{delivery.title as string}</p>
+          {delivery.month && (
+            <p className="text-xs text-gray-400">{formatMonth(delivery.month as string)}</p>
+          )}
+        </div>
+        {total > 0 && (
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div className={cn("h-full rounded-full transition-all", pct === 100 ? "bg-green-400" : "bg-yellow-400")}
+                style={{ width: `${pct}%` }} />
+            </div>
+            <span className="text-xs font-black text-gray-600 w-8 text-right">{pct}%</span>
+          </div>
+        )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={(e) => { e.stopPropagation(); onEdit(delivery); }}
+            className="p-1.5 rounded hover:bg-yellow-50 text-gray-400 hover:text-yellow-600 transition-colors opacity-0 group-hover:opacity-100">
+            <Pencil size={13} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(delivery.id as string); }}
+            className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+            <Trash2 size={13} />
+          </button>
+          {expanded ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+        </div>
+      </div>
+
+      {/* Tarefas expandidas */}
+      {expanded && (
+        <div className="border-t border-gray-100 px-4 py-3">
+          <DeliveryTaskPanel delivery={{ id: delivery.id as string, title: delivery.title as string }} users={users} />
+        </div>
+      )}
+    </div>
+  );
 }
-function FormInput({ value, onChange, type = "text" }: { value: string; onChange: (v: string) => void; type?: string }) {
-  return <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 transition-colors" />;
+
+// ─── Modal de nova entrega ────────────────────────────────────────────────────
+function DeliveryModal({
+  clients, users, onClose, onSave,
+}: {
+  clients: Array<{ id: string; name: string }>;
+  users: Array<{ id: string; name: string }>;
+  onClose: () => void;
+  onSave: (data: Record<string, unknown>, vars: { designs: number; videos: number; landingPage: boolean }) => void;
+}) {
+  const [clientId, setClientId] = useState(clients[0]?.id ?? "");
+  const [title, setTitle] = useState("");
+  const [month, setMonth] = useState(currentMonth());
+  const [designs, setDesigns] = useState(0);
+  const [videos, setVideos] = useState(0);
+  const [landingPage, setLandingPage] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="relative bg-white rounded-xl border-2 border-black w-full max-w-md shadow-[6px_6px_0px_#000]">
+        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-black">
+          <h2 className="text-base font-black">Nova Entrega</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-black"><X size={18} /></button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Cliente */}
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Cliente</label>
+            <select value={clientId} onChange={(e) => setClientId(e.target.value)}
+              className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {/* Título */}
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Título da entrega</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Entrega Mensal — Junho"
+              className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" />
+          </div>
+
+          {/* Mês */}
+          <div>
+            <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Mês de referência</label>
+            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)}
+              className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" />
+          </div>
+
+          {/* Variáveis */}
+          <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Entregáveis variáveis</p>
+
+            <div className="flex items-center gap-3">
+              <Film size={14} className="text-gray-400 shrink-0" />
+              <span className="text-sm text-gray-700 flex-1">Vídeos</span>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setVideos(Math.max(0, videos - 1))}
+                  className="w-7 h-7 rounded-lg border-2 border-gray-200 text-sm font-bold hover:border-black transition-colors flex items-center justify-center">−</button>
+                <span className="w-6 text-center text-sm font-black">{videos}</span>
+                <button onClick={() => setVideos(videos + 1)}
+                  className="w-7 h-7 rounded-lg border-2 border-gray-200 text-sm font-bold hover:border-black transition-colors flex items-center justify-center">+</button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Image size={14} className="text-gray-400 shrink-0" />
+              <span className="text-sm text-gray-700 flex-1">Designs</span>
+              <div className="flex items-center gap-1.5">
+                <button onClick={() => setDesigns(Math.max(0, designs - 1))}
+                  className="w-7 h-7 rounded-lg border-2 border-gray-200 text-sm font-bold hover:border-black transition-colors flex items-center justify-center">−</button>
+                <span className="w-6 text-center text-sm font-black">{designs}</span>
+                <button onClick={() => setDesigns(designs + 1)}
+                  className="w-7 h-7 rounded-lg border-2 border-gray-200 text-sm font-bold hover:border-black transition-colors flex items-center justify-center">+</button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Globe size={14} className="text-gray-400 shrink-0" />
+              <span className="text-sm text-gray-700 flex-1">Landing Page</span>
+              <button onClick={() => setLandingPage((v) => !v)}
+                className={cn("w-11 h-6 rounded-full border-2 transition-colors relative",
+                  landingPage ? "bg-yellow-400 border-yellow-400" : "bg-gray-200 border-gray-200")}>
+                <span className={cn("absolute top-0.5 w-4 h-4 bg-white rounded-full border border-gray-200 shadow transition-all",
+                  landingPage ? "left-[calc(100%-1.25rem)]" : "left-0.5")} />
+              </button>
+            </div>
+          </div>
+
+          {/* Tarefas fixas (informativo) */}
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Tarefas obrigatórias incluídas</p>
+            <div className="space-y-1">
+              {FIXED_TASKS.map((t) => (
+                <div key={t.key} className="flex items-center gap-2 text-xs text-gray-600">
+                  <CheckCircle2 size={11} className="text-green-400 shrink-0" />
+                  {t.title}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
+          <button
+            onClick={() => {
+              if (!clientId || !title) return;
+              onSave({ clientId, title, month, status: "em_andamento" }, { designs, videos, landingPage });
+            }}
+            disabled={!clientId || !title}
+            className="px-5 py-2 bg-black text-yellow-400 text-sm font-bold rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors">
+            Criar Entrega
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página principal ─────────────────────────────────────────────────────────
+export default function EntregasPage() {
+  const { deliveries, isLoading } = useDeliveries();
+  const { clients } = useClients();
+  const { users } = useUsers();
+
+  const [search, setSearch] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  // Agrupa por cliente
+  const byClient = useMemo(() => {
+    const filtered = search
+      ? deliveries.filter((d) => (d.title as string)?.toLowerCase().includes(search.toLowerCase()))
+      : deliveries;
+
+    const map: Record<string, { client: { id: string; name: string } | null; deliveries: typeof filtered }> = {};
+    filtered.forEach((d) => {
+      const cId = (d.clientId as string) ?? "__sem_cliente";
+      if (!map[cId]) {
+        const client = clients.find((c) => c.id === cId) ?? null;
+        map[cId] = { client: client ? { id: client.id, name: client.name } : null, deliveries: [] };
+      }
+      map[cId].deliveries.push(d);
+    });
+    return Object.values(map).sort((a, b) => (a.client?.name ?? "").localeCompare(b.client?.name ?? ""));
+  }, [deliveries, clients, search]);
+
+  const handleCreate = async (data: Record<string, unknown>, vars: { designs: number; videos: number; landingPage: boolean }) => {
+    setCreating(true);
+    try {
+      const created = await createDelivery(data);
+      await initDefaultTasks(created.id, vars);
+    } finally {
+      setCreating(false);
+      setShowModal(false);
+    }
+  };
+
+  return (
+    <ClientOnly>
+      <div className="space-y-6">
+        {/* Toolbar */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-48">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar entrega..."
+              className="w-full pl-9 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-yellow-400 bg-white" />
+          </div>
+          <button onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-black text-yellow-400 text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors shadow-[2px_2px_0px_#000]">
+            <Plus size={16} /> Nova Entrega
+          </button>
+        </div>
+
+        {/* Conteúdo */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <Loader2 size={20} className="animate-spin mr-2" /> Carregando entregas...
+          </div>
+        ) : byClient.length === 0 ? (
+          <div className="bg-white border-2 border-black rounded-xl p-16 text-center shadow-[3px_3px_0px_#000]">
+            <LayoutTemplate size={40} className="mx-auto text-gray-200 mb-4" />
+            <p className="text-base font-black text-gray-700 mb-1">Nenhuma entrega cadastrada</p>
+            <p className="text-sm text-gray-400 mb-4">Crie a primeira entrega para começar a rastrear o progresso</p>
+            <button onClick={() => setShowModal(true)}
+              className="px-5 py-2.5 bg-black text-yellow-400 text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors">
+              Criar Entrega
+            </button>
+          </div>
+        ) : (
+          byClient.map(({ client, deliveries: dels }) => (
+            <div key={client?.id ?? "__sem_cliente"}>
+              {/* Header do cliente */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-black text-yellow-400 flex items-center justify-center text-xs font-black shrink-0">
+                  {client ? getInitials(client.name) : "?"}
+                </div>
+                <div>
+                  <p className="text-sm font-black text-gray-900">{client?.name ?? "Sem cliente"}</p>
+                  <p className="text-xs text-gray-400">{dels.length} entrega(s)</p>
+                </div>
+              </div>
+
+              {/* Cards de entrega */}
+              <div className="space-y-2 ml-11">
+                {dels.map((d) => (
+                  <DeliveryCard
+                    key={d.id}
+                    delivery={d as Record<string, unknown>}
+                    users={users.map((u) => ({ id: u.id, name: u.name }))}
+                    onEdit={() => {}}
+                    onDelete={async (id) => { await deleteDelivery(id); }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <DeliveryModal
+          clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+          users={users.map((u) => ({ id: u.id, name: u.name }))}
+          onClose={() => setShowModal(false)}
+          onSave={handleCreate}
+        />
+      )}
+
+      {/* Loading overlay ao criar */}
+      {creating && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl border-2 border-black px-8 py-6 shadow-[4px_4px_0px_#000] flex items-center gap-3">
+            <Loader2 size={20} className="animate-spin text-yellow-500" />
+            <span className="text-sm font-bold text-gray-800">Criando entrega e tarefas...</span>
+          </div>
+        </div>
+      )}
+    </ClientOnly>
+  );
 }

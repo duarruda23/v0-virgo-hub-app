@@ -128,6 +128,83 @@ export async function deleteDelivery(id: string) {
   mutate("/api/deliveries");
 }
 
+// ─── Delivery Tasks / Subtasks ────────────────────────────────────────────────
+export interface DeliveryTask {
+  id: string;
+  deliveryId: string;
+  type: "fixed" | "variable" | "landing_page";
+  key: string;
+  title: string;
+  status: "pendente" | "em_andamento" | "concluido";
+  assigneeId?: string | null;
+  quantity?: number;
+  enabled?: boolean;
+  notes?: string | null;
+  position?: number;
+}
+
+export interface DeliverySubtask {
+  id: string;
+  deliveryId: string;
+  parentKey: string;
+  key: string;
+  title: string;
+  status: "pendente" | "em_andamento" | "concluido";
+  position?: number;
+}
+
+export interface DeliveryTasksData {
+  tasks: DeliveryTask[];
+  subtasks: DeliverySubtask[];
+}
+
+export function useDeliveryTasks(deliveryId: string | null) {
+  const key = deliveryId ? `/api/delivery-tasks?deliveryId=${deliveryId}` : null;
+  const { data, error, isLoading } = useSWR<DeliveryTasksData>(key, fetcher);
+  return { tasks: data?.tasks ?? [], subtasks: data?.subtasks ?? [], error, isLoading };
+}
+
+export async function upsertDeliveryTask(data: Partial<DeliveryTask>) {
+  const res = await fetch("/api/delivery-tasks", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate(`/api/delivery-tasks?deliveryId=${data.deliveryId}`);
+  return json as DeliveryTask;
+}
+
+export async function updateDeliveryTask(id: string, data: Partial<DeliveryTask & { _subtask?: boolean }>) {
+  await fetch(`/api/delivery-tasks/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+  });
+  mutate(`/api/delivery-tasks?deliveryId=${data.deliveryId}`);
+}
+
+export async function upsertDeliverySubtask(data: Partial<DeliverySubtask> & { _subtask: true }) {
+  const res = await fetch("/api/delivery-tasks", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  mutate(`/api/delivery-tasks?deliveryId=${data.deliveryId}`);
+  return json as DeliverySubtask;
+}
+
+export async function updateDeliverySubtask(id: string, deliveryId: string, data: Partial<DeliverySubtask>) {
+  await fetch(`/api/delivery-tasks/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...data, _subtask: true }),
+  });
+  mutate(`/api/delivery-tasks?deliveryId=${deliveryId}`);
+}
+
+export async function updateUserCapacity(id: string, dailyCapacity: number) {
+  await fetch(`/api/users/${id}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dailyCapacity }),
+  });
+  mutate("/api/users");
+}
+
 // ─── Tasks ────────────────────────────────────────────────────────────────────
 export function useTasks() {
   const { data, error, isLoading } = useSWR<Task[]>("/api/tasks", fetcher);
