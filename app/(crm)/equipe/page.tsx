@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { Plus, X, Search, Mail, Phone, Shield, User, Users } from "lucide-react";
+import { Plus, X, Search, Mail, Phone, Shield, User, Users, Copy, Check, KeyRound, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUsers, createUser, updateUser, deleteUser, useTasks, useProjects } from "@/hooks/use-data";
 import type { User as UserType, Role } from "@/lib/types";
@@ -26,6 +26,20 @@ const ROLE_ICON_BG: Record<Role, string> = {
 
 const DEPARTMENTS = ["Gestão", "Tráfego Pago", "Design", "Conteúdo", "Social Media", "SEO", "Desenvolvimento"];
 
+function generatePassword(): string {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let pass = "";
+  for (let i = 0; i < 10; i++) pass += chars[Math.floor(Math.random() * chars.length)];
+  return pass;
+}
+
+interface InviteConfirm {
+  name: string;
+  email: string;
+  password: string;
+  role: Role;
+}
+
 const EMPTY_USER: Omit<UserType, "id" | "createdAt"> = {
   name: "", email: "", phone: "", role: "collaborator",
   department: "Design", position: "", active: true,
@@ -38,25 +52,59 @@ export default function EquipePage() {
 
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState<Role | "all">("all");
-  const [modal, setModal] = useState<Partial<UserType> | null>(null);
+  const [modal, setModal] = useState<(Partial<UserType> & { tempPassword?: string }) | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [detail, setDetail] = useState<UserType | null>(null);
+  const [inviteConfirm, setInviteConfirm] = useState<InviteConfirm | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [resetPass, setResetPass] = useState("");
+  const [showResetPass, setShowResetPass] = useState(false);
 
   const filtered = useMemo(() => users.filter((u) => {
-    const matchSearch = search === "" || u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) || u.department?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = search === "" ||
+      u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.department?.toLowerCase().includes(search.toLowerCase());
     const matchRole = filterRole === "all" || u.role === filterRole;
     return matchSearch && matchRole;
   }), [users, search, filterRole]);
+
+  const openNew = () => {
+    const tempPassword = generatePassword();
+    setModal({ ...EMPTY_USER, tempPassword });
+    setIsEditing(false);
+  };
 
   const handleSave = async () => {
     if (!modal?.name || !modal?.email) return;
     if (isEditing && modal.id) {
       await updateUser(modal.id, modal);
+      setModal(null);
+      setIsEditing(false);
     } else {
-      await createUser({ ...EMPTY_USER, ...modal });
+      const password = modal.tempPassword || generatePassword();
+      await createUser({ ...EMPTY_USER, ...modal, password });
+      setInviteConfirm({
+        name: modal.name!,
+        email: modal.email!,
+        password,
+        role: (modal.role as Role) ?? "collaborator",
+      });
+      setModal(null);
     }
-    setModal(null); setIsEditing(false);
+  };
+
+  const handleResetPassword = async () => {
+    if (!detail || !resetPass) return;
+    await updateUser(detail.id, { password: resetPass } as Partial<UserType>);
+    setShowResetPass(false);
+    setResetPass("");
+  };
+
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   const getUserStats = (userId: string) => {
@@ -95,9 +143,9 @@ export default function EquipePage() {
             </button>
           ))}
         </div>
-        <button onClick={() => { setModal({ ...EMPTY_USER }); setIsEditing(false); }}
+        <button onClick={openNew}
           className="ml-auto flex items-center gap-2 bg-black text-yellow-400 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors">
-          <Plus size={15} /> Novo Membro
+          <Plus size={15} /> Convidar Membro
         </button>
       </div>
 
@@ -120,7 +168,7 @@ export default function EquipePage() {
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 text-sm leading-tight">{user.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{user.position}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{user.position || user.department}</p>
                   </div>
                 </div>
                 <span className={cn(
@@ -130,7 +178,6 @@ export default function EquipePage() {
                   {user.active ? ROLE_LABELS[user.role] : "Inativo"}
                 </span>
               </div>
-
               <div className="space-y-1.5 mb-4">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Mail size={11} className="text-gray-400" /> {user.email}
@@ -141,7 +188,6 @@ export default function EquipePage() {
                   </div>
                 )}
               </div>
-
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{user.department}</p>
                 <div className="flex items-center gap-4 text-xs text-gray-500">
@@ -162,19 +208,89 @@ export default function EquipePage() {
             </div>
           );
         })}
+
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 text-gray-400 text-sm">
+            Nenhum membro encontrado
+          </div>
+        )}
       </div>
 
-      {/* Detail Panel */}
+      {/* ── Invite Confirmation Card ───────────────────────────────── */}
+      {inviteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setInviteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
+            <div className="bg-black px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-yellow-400" />
+                <h3 className="font-bold text-white">Membro criado com sucesso!</h3>
+              </div>
+              <button onClick={() => setInviteConfirm(null)} className="p-1.5 rounded-lg hover:bg-white/10 text-white/60">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-gray-600">
+                Envie as credenciais abaixo para <span className="font-bold text-gray-900">{inviteConfirm.name}</span> acessar o sistema:
+              </p>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-0.5">E-mail</p>
+                    <p className="text-sm font-semibold text-gray-900">{inviteConfirm.email}</p>
+                  </div>
+                  <button onClick={() => copyText(inviteConfirm.email, "email")}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors">
+                    {copied === "email" ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-[10px] font-bold text-yellow-600 uppercase tracking-wide mb-0.5">Senha temporária</p>
+                    <p className="text-sm font-bold text-gray-900 font-mono tracking-wider">{inviteConfirm.password}</p>
+                  </div>
+                  <button onClick={() => copyText(inviteConfirm.password, "password")}
+                    className="p-1.5 rounded-lg hover:bg-yellow-200 text-yellow-600 hover:text-yellow-800 transition-colors">
+                    {copied === "password" ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  const texto = `Olá ${inviteConfirm.name}! Aqui estão suas credenciais de acesso ao TDL Hub:\n\nE-mail: ${inviteConfirm.email}\nSenha: ${inviteConfirm.password}\n\nFaça login em: ${window.location.origin}/login`;
+                  copyText(texto, "all");
+                }}
+                className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg py-3 text-sm font-semibold text-gray-600 hover:border-yellow-400 hover:text-yellow-600 transition-colors"
+              >
+                {copied === "all" ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                Copiar mensagem completa
+              </button>
+
+              <button onClick={() => setInviteConfirm(null)}
+                className="w-full py-2.5 bg-black text-yellow-400 rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Detail Panel ──────────────────────────────────────────── */}
       {detail && (
         <div className="fixed inset-0 z-40 flex justify-end">
-          <div className="absolute inset-0 bg-black/20" onClick={() => setDetail(null)} />
+          <div className="absolute inset-0 bg-black/20" onClick={() => { setDetail(null); setShowResetPass(false); setResetPass(""); }} />
           <div className="relative w-full max-w-sm bg-white h-full shadow-2xl overflow-y-auto z-10">
             <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
               <h2 className="font-bold text-gray-900">{detail.name}</h2>
               <div className="flex gap-2">
                 <button onClick={() => { setModal({ ...detail }); setIsEditing(true); setDetail(null); }}
                   className="text-sm px-3 py-1.5 rounded-lg bg-black text-yellow-400 font-bold hover:bg-gray-800">Editar</button>
-                <button onClick={() => setDetail(null)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><X size={15} /></button>
+                <button onClick={() => { setDetail(null); setShowResetPass(false); setResetPass(""); }}
+                  className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><X size={15} /></button>
               </div>
             </div>
             <div className="p-5 space-y-5">
@@ -195,6 +311,44 @@ export default function EquipePage() {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contato</p>
                 <div className="flex items-center gap-2 text-sm text-gray-700"><Mail size={14} className="text-gray-400" />{detail.email}</div>
                 {detail.phone && <div className="flex items-center gap-2 text-sm text-gray-700"><Phone size={14} className="text-gray-400" />{detail.phone}</div>}
+              </div>
+
+              {/* Reset de Senha */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowResetPass((v) => !v)}
+                  className="w-full flex items-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <KeyRound size={14} className="text-gray-400" />
+                  Redefinir senha de acesso
+                </button>
+                {showResetPass && (
+                  <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={resetPass}
+                        onChange={(e) => setResetPass(e.target.value)}
+                        placeholder="Nova senha..."
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400"
+                      />
+                      <button
+                        onClick={() => setResetPass(generatePassword())}
+                        className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-500"
+                        title="Gerar senha"
+                      >
+                        <RefreshCw size={14} />
+                      </button>
+                    </div>
+                    <button
+                      onClick={handleResetPassword}
+                      disabled={!resetPass}
+                      className="w-full py-2 bg-black text-yellow-400 rounded-lg text-sm font-bold hover:bg-gray-800 disabled:opacity-40 transition-colors"
+                    >
+                      Salvar nova senha
+                    </button>
+                  </div>
+                )}
               </div>
 
               {(() => {
@@ -238,13 +392,13 @@ export default function EquipePage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* ── Create / Edit Modal ───────────────────────────────────── */}
       {modal !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setModal(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900">{isEditing ? "Editar Membro" : "Novo Membro"}</h3>
+              <h3 className="font-bold text-gray-900">{isEditing ? "Editar Membro" : "Convidar Novo Membro"}</h3>
               <button onClick={() => setModal(null)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"><X size={16} /></button>
             </div>
             <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -255,7 +409,7 @@ export default function EquipePage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Email *</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">E-mail *</label>
                   <input value={modal.email ?? ""} onChange={(e) => setModal((p) => ({ ...p, email: e.target.value }))}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" placeholder="email@" />
                 </div>
@@ -289,6 +443,31 @@ export default function EquipePage() {
                   <label htmlFor="active" className="text-sm text-gray-700 font-medium">Membro ativo</label>
                 </div>
               </div>
+
+              {/* Senha temporária (apenas na criação) */}
+              {!isEditing && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                  <p className="text-xs font-bold text-yellow-700 uppercase tracking-wide mb-2">Senha de acesso</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={modal.tempPassword ?? ""}
+                      onChange={(e) => setModal((p) => ({ ...p, tempPassword: e.target.value }))}
+                      className="flex-1 text-sm border border-yellow-300 rounded-lg px-3 py-2 bg-white font-mono focus:outline-none focus:border-yellow-400"
+                      placeholder="Senha temporária"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setModal((p) => ({ ...p, tempPassword: generatePassword() }))}
+                      className="p-2 rounded-lg border border-yellow-300 hover:bg-yellow-100 text-yellow-700"
+                      title="Gerar nova senha"
+                    >
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-yellow-600 mt-1.5">O membro usará essa senha para fazer o primeiro acesso.</p>
+                </div>
+              )}
             </div>
             <div className="px-5 py-4 border-t border-gray-100 flex justify-between items-center">
               {isEditing && (
@@ -297,8 +476,9 @@ export default function EquipePage() {
               )}
               <div className="flex gap-2 ml-auto">
                 <button onClick={() => setModal(null)} className="px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-100">Cancelar</button>
-                <button onClick={handleSave} className="px-4 py-2 text-sm font-bold bg-black text-yellow-400 rounded-lg hover:bg-gray-800 transition-colors">
-                  {isEditing ? "Salvar" : "Adicionar"}
+                <button onClick={handleSave} disabled={!modal.name || !modal.email}
+                  className="px-4 py-2 text-sm font-bold bg-black text-yellow-400 rounded-lg hover:bg-gray-800 disabled:opacity-40 transition-colors">
+                  {isEditing ? "Salvar" : "Criar e ver credenciais"}
                 </button>
               </div>
             </div>

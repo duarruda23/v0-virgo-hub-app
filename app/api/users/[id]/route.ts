@@ -13,6 +13,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       position    = COALESCE(${b.position ?? null}, position),
       phone       = COALESCE(${b.phone ?? null}, phone),
       active      = COALESCE(${b.active ?? null}, active),
+      password    = CASE WHEN ${b.password ?? null} IS NOT NULL THEN ${b.password ?? null} ELSE password END,
       updated_at  = NOW()
     WHERE id = ${id}
     RETURNING id, name, email, role, avatar, department, position, phone, active, created_at, updated_at
