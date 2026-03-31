@@ -52,12 +52,24 @@ ON CONFLICT (name) DO NOTHING;
 CREATE TABLE IF NOT EXISTS pauta_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pauta_month_id UUID NOT NULL REFERENCES pauta_months(id) ON DELETE CASCADE,
-  client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  client_id TEXT NOT NULL,
   delivery_type_id UUID NOT NULL REFERENCES pauta_delivery_types(id) ON DELETE CASCADE,
   is_completed BOOLEAN DEFAULT FALSE,
   completed_at TIMESTAMPTZ,
-  assigned_to UUID REFERENCES users(id),
+  assigned_to TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(pauta_month_id, client_id, delivery_type_id)
+);
+
+-- Configuração por cliente/mês (qty videos, designs, landing page)
+CREATE TABLE IF NOT EXISTS pauta_client_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pauta_month_id UUID NOT NULL REFERENCES pauta_months(id) ON DELETE CASCADE,
+  client_id TEXT NOT NULL,
+  qty_videos INT DEFAULT 0,
+  qty_designs INT DEFAULT 0,
+  has_landing_page BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(pauta_month_id, client_id)
 );
