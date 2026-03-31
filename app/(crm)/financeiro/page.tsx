@@ -14,7 +14,7 @@ import { formatCurrency } from "@/lib/utils-crm";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-const CATEGORIES: { value: FinancialEntry["category"]; label: string; color: string }[] = [
+const RECEITA_CATEGORIES: { value: string; label: string; color: string }[] = [
   { value: "mrr",       label: "MRR (Recorrente)",   color: "bg-blue-100 text-blue-800" },
   { value: "avulso",    label: "Cobrança Avulsa",     color: "bg-purple-100 text-purple-800" },
   { value: "bonus",     label: "Bônus",               color: "bg-green-100 text-green-800" },
@@ -24,6 +24,27 @@ const CATEGORIES: { value: FinancialEntry["category"]; label: string; color: str
   { value: "reembolso", label: "Reembolso",            color: "bg-pink-100 text-pink-800" },
   { value: "parcela",   label: "Parcela de Projeto",   color: "bg-indigo-100 text-indigo-800" },
 ];
+
+const DESPESA_CATEGORIES: { value: string; label: string; color: string }[] = [
+  { value: "salario",      label: "Salário",               color: "bg-blue-100 text-blue-800" },
+  { value: "aluguel",      label: "Aluguel / Espaço",      color: "bg-orange-100 text-orange-800" },
+  { value: "investimento", label: "Investimento",           color: "bg-purple-100 text-purple-800" },
+  { value: "imposto",      label: "Imposto / Taxa",         color: "bg-red-100 text-red-800" },
+  { value: "fornecedor",   label: "Fornecedor / Serviço",   color: "bg-yellow-100 text-yellow-800" },
+  { value: "ferramenta",   label: "Ferramenta / Software",  color: "bg-cyan-100 text-cyan-800" },
+  { value: "marketing",    label: "Marketing / Tráfego",    color: "bg-pink-100 text-pink-800" },
+  { value: "comissao",     label: "Comissão Paga",          color: "bg-teal-100 text-teal-800" },
+  { value: "reembolso",    label: "Reembolso",              color: "bg-gray-100 text-gray-700" },
+  { value: "outros",       label: "Outros",                 color: "bg-gray-100 text-gray-600" },
+];
+
+const ALL_CATEGORIES = [...RECEITA_CATEGORIES, ...DESPESA_CATEGORIES];
+
+function getCategoriesForType(type: string) {
+  return type === "despesa" ? DESPESA_CATEGORIES : RECEITA_CATEGORIES;
+}
+
+const CATEGORIES = ALL_CATEGORIES;
 
 const STATUS_STYLES: Record<string, string> = {
   pago:      "bg-green-100 text-green-700 border-green-200",
@@ -86,6 +107,12 @@ function EntryModal({ initial, clients, projects, onSave, onClose }: {
 }) {
   const [form, setForm] = useState<Partial<FinancialEntry>>(initial);
   const set = (k: keyof FinancialEntry, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+  const availableCategories = getCategoriesForType(form.type ?? "receita");
+
+  function handleTypeChange(t: "receita" | "despesa") {
+    const defaultCat = t === "despesa" ? "salario" : "avulso";
+    setForm((p) => ({ ...p, type: t, category: defaultCat as FinancialEntry["category"] }));
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -101,10 +128,15 @@ function EntryModal({ initial, clients, projects, onSave, onClose }: {
           {/* Tipo */}
           <div className="flex gap-2">
             {(["receita", "despesa"] as const).map((t) => (
-              <button key={t} onClick={() => set("type", t)}
-                className={cn("flex-1 py-2 rounded-lg border-2 text-sm font-bold capitalize transition-colors",
-                  form.type === t ? "border-black bg-black text-yellow-400" : "border-gray-200 text-gray-500 hover:border-gray-400"
+              <button key={t} onClick={() => handleTypeChange(t)}
+                className={cn("flex-1 py-2.5 rounded-lg border-2 text-sm font-bold transition-colors flex items-center justify-center gap-2",
+                  form.type === t
+                    ? t === "receita"
+                      ? "border-green-500 bg-green-500 text-white"
+                      : "border-red-500 bg-red-500 text-white"
+                    : "border-gray-200 text-gray-500 hover:border-gray-400"
                 )}>
+                {t === "receita" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                 {t === "receita" ? "Receita" : "Despesa"}
               </button>
             ))}
@@ -112,10 +144,12 @@ function EntryModal({ initial, clients, projects, onSave, onClose }: {
 
           {/* Categoria */}
           <div>
-            <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">Categoria</label>
+            <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wide">
+              Categoria {form.type === "despesa" ? "de Despesa" : "de Receita"}
+            </label>
             <select value={form.category} onChange={(e) => set("category", e.target.value)}
               className="w-full text-sm border-2 border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white">
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {availableCategories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
 
@@ -225,7 +259,7 @@ export default function FinanceiroPage() {
   const [filterStatus, setFilterStatus] = useState("todos");
   const [filterType, setFilterType] = useState("todos");
   const [filterClient, setFilterClient] = useState("");
-  const [activeTab, setActiveTab] = useState<"extrato" | "previsao" | "inadimplencia" | "porcliente">("extrato");
+  const [activeTab, setActiveTab] = useState<"extrato" | "despesas" | "previsao" | "inadimplencia" | "porcliente">("extrato");
   const [modal, setModal] = useState<Partial<FinancialEntry> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -237,6 +271,20 @@ export default function FinanceiroPage() {
   const totalPendente = useMemo(() => entries.filter((e) => e.type === "receita" && e.status === "pendente").reduce((s, e) => s + e.amount, 0), [entries]);
   const totalAtrasado = useMemo(() => entries.filter((e) => e.status === "atrasado").reduce((s, e) => s + e.amount, 0), [entries]);
   const totalDespesas = useMemo(() => entries.filter((e) => e.type === "despesa" && e.status === "pago").reduce((s, e) => s + e.amount, 0), [entries]);
+  const resultado = totalReceitas - totalDespesas;
+
+  // Despesas por categoria
+  const despesasPorCategoria = useMemo(() => {
+    const map: Record<string, { label: string; color: string; total: number; pendente: number; count: number }> = {};
+    entries.filter((e) => e.type === "despesa").forEach((e) => {
+      const cat = DESPESA_CATEGORIES.find((c) => c.value === e.category);
+      if (!map[e.category]) map[e.category] = { label: cat?.label ?? e.category, color: cat?.color ?? "bg-gray-100 text-gray-600", total: 0, pendente: 0, count: 0 };
+      if (e.status === "pago") map[e.category].total += e.amount;
+      if (e.status === "pendente") map[e.category].pendente += e.amount;
+      map[e.category].count += 1;
+    });
+    return Object.entries(map).sort(([, a], [, b]) => (b.total + b.pendente) - (a.total + a.pendente));
+  }, [entries]);
 
   // Extrato filtrado
   const filtered = useMemo(() => {
@@ -317,10 +365,11 @@ export default function FinanceiroPage() {
   function openEdit(e: FinancialEntry) { setModal({ ...e }); setIsEditing(true); }
 
   const TABS = [
-    { key: "extrato", label: "Extrato" },
-    { key: "previsao", label: "Previsão" },
-    { key: "inadimplencia", label: `Inadimplência ${inadimplentes.length > 0 ? `(${inadimplentes.length})` : ""}` },
-    { key: "porcliente", label: "Por Cliente" },
+    { key: "extrato",       label: "Extrato" },
+    { key: "despesas",      label: "Despesas" },
+    { key: "previsao",      label: "Previsão" },
+    { key: "inadimplencia", label: `Inadimplência${inadimplentes.length > 0 ? ` (${inadimplentes.length})` : ""}` },
+    { key: "porcliente",    label: "Por Cliente" },
   ] as const;
 
   return (
@@ -341,12 +390,13 @@ export default function FinanceiroPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Receita Recebida" value={formatCurrency(totalReceitas)} icon={TrendingUp}
           accent="bg-green-100 text-green-700" sub="lançamentos pagos" />
-        <KpiCard label="A Receber" value={formatCurrency(totalPendente)} icon={Clock}
-          accent="bg-yellow-100 text-yellow-700" sub="em aberto" />
-        <KpiCard label="Em Atraso" value={formatCurrency(totalAtrasado)} icon={AlertCircle}
-          accent="bg-red-100 text-red-700" sub={`${inadimplentes.length} lançamento(s)`} />
         <KpiCard label="Despesas Pagas" value={formatCurrency(totalDespesas)} icon={TrendingDown}
-          accent="bg-gray-100 text-gray-700" sub="saídas confirmadas" />
+          accent="bg-red-100 text-red-700" sub="salários, aluguel, etc." />
+        <KpiCard label="Resultado Líquido" value={formatCurrency(resultado)} icon={DollarSign}
+          accent={resultado >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}
+          sub={resultado >= 0 ? "superávit" : "déficit"} />
+        <KpiCard label="A Receber" value={formatCurrency(totalPendente)} icon={Clock}
+          accent="bg-yellow-100 text-yellow-700" sub={`${inadimplentes.length} em atraso`} />
       </div>
 
       {/* Tabs */}
@@ -471,6 +521,119 @@ export default function FinanceiroPage() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: DESPESAS ── */}
+      {activeTab === "despesas" && (
+        <div className="space-y-4">
+          {/* Resumo por categoria */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {despesasPorCategoria.length === 0 ? (
+              <div className="col-span-2 bg-white rounded-xl border-2 border-black p-12 text-center shadow-[3px_3px_0px_#000]">
+                <TrendingDown size={32} className="mx-auto text-gray-200 mb-3" />
+                <p className="text-sm font-semibold text-gray-400">Nenhuma despesa lançada ainda</p>
+                <button onClick={() => { setModal({ ...EMPTY, type: "despesa", category: "salario" }); setIsEditing(false); }}
+                  className="mt-3 text-sm text-yellow-600 font-bold hover:underline">
+                  Adicionar primeira despesa
+                </button>
+              </div>
+            ) : despesasPorCategoria.map(([key, cat]) => {
+              const total = cat.total + cat.pendente;
+              const paidPct = total > 0 ? Math.round((cat.total / total) * 100) : 0;
+              return (
+                <div key={key} className="bg-white rounded-xl border-2 border-black p-5 shadow-[3px_3px_0px_#000]">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <span className={cn("text-xs font-bold px-2 py-0.5 rounded-full", cat.color)}>{cat.label}</span>
+                      <p className="text-xs text-gray-400 mt-1">{cat.count} lançamento(s)</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-gray-900">{formatCurrency(total)}</p>
+                      <p className="text-xs text-gray-400">{formatCurrency(cat.total)} pago</p>
+                    </div>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-black rounded-full transition-all" style={{ width: `${paidPct}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-1.5">
+                    <span className="text-xs text-gray-400">{paidPct}% pago</span>
+                    {cat.pendente > 0 && <span className="text-xs text-yellow-600 font-semibold">{formatCurrency(cat.pendente)} pendente</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Tabela de despesas detalhada */}
+          <div className="bg-white rounded-xl border-2 border-black overflow-hidden shadow-[3px_3px_0px_#000]">
+            <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b-2 border-gray-100">
+              <span className="text-sm font-black">Todos os lançamentos de despesa</span>
+              <button onClick={() => { setModal({ ...EMPTY, type: "despesa", category: "salario" }); setIsEditing(false); }}
+                className="flex items-center gap-1.5 text-xs font-bold bg-black text-yellow-400 px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors">
+                <Plus size={12} /> Nova Despesa
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100">
+                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Descrição</th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Categoria</th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Vencimento</th>
+                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Valor</th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide">Status</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {entries.filter((e) => e.type === "despesa").sort((a, b) => {
+                    const da = a.dueDate ? new Date(a.dueDate).getTime() : 0;
+                    const db = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+                    return db - da;
+                  }).map((e) => (
+                    <tr key={e.id} className="hover:bg-gray-50 group transition-colors">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-gray-900">{e.description}</p>
+                        {e.notes && <p className="text-xs text-gray-400 mt-0.5">{e.notes}</p>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full", catColor(e.category))}>{catLabel(e.category)}</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(e.dueDate)}</td>
+                      <td className="px-4 py-3 text-right font-black text-red-600">{formatCurrency(e.amount)}</td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-full border", STATUS_STYLES[e.status])}>
+                          {STATUS_LABELS[e.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {e.status !== "pago" && (
+                            <button onClick={() => handleMarkPaid(e)}
+                              className="p-1.5 rounded-md hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors">
+                              <CheckCircle2 size={14} />
+                            </button>
+                          )}
+                          <button onClick={() => openEdit(e)}
+                            className="p-1.5 rounded-md hover:bg-yellow-50 text-gray-400 hover:text-yellow-600 transition-colors">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(e.id)}
+                            className="p-1.5 rounded-md hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {entries.filter((e) => e.type === "despesa").length === 0 && (
+                <div className="p-8 text-center text-sm text-gray-400">Nenhuma despesa lançada</div>
+              )}
+            </div>
           </div>
         </div>
       )}

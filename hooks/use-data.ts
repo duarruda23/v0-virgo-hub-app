@@ -387,7 +387,8 @@ export interface FinancialEntry {
   clientId?: string | null;
   projectId?: string | null;
   type: "receita" | "despesa";
-  category: "mrr" | "avulso" | "bonus" | "comissao" | "ajuste" | "desconto" | "reembolso" | "parcela";
+  category: "mrr" | "avulso" | "bonus" | "comissao" | "ajuste" | "desconto" | "reembolso" | "parcela"
+    | "salario" | "aluguel" | "investimento" | "imposto" | "fornecedor" | "ferramenta" | "marketing" | "outros";
   description: string;
   amount: number;
   status: "pendente" | "pago" | "atrasado" | "cancelado";
