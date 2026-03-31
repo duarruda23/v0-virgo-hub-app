@@ -431,6 +431,25 @@ export default function EquipePage() {
                 {detail.phone && <div className="flex items-center gap-2 text-sm text-gray-700"><Phone size={14} className="text-gray-400" />{detail.phone}</div>}
               </div>
 
+              {/* Especialidade / Dashboard View */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Dashboard / Especialidade</p>
+                <p className="text-xs text-gray-500">Define qual visualização o colaborador verá ao entrar no sistema.</p>
+                <select
+                  defaultValue={(detail as typeof detail & { specialty?: string }).specialty ?? ""}
+                  onChange={async (e) => {
+                    await updateUser(detail.id, { specialty: e.target.value || null } as Parameters<typeof updateUser>[1]);
+                  }}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white"
+                >
+                  <option value="">Geral (sem especialidade)</option>
+                  <option value="designer">Designer</option>
+                  <option value="video_editor">Editor de Vídeo</option>
+                  <option value="seller">Vendedor / Comercial</option>
+                  <option value="social_media">Social Media</option>
+                </select>
+              </div>
+
               {/* Reset de Senha */}
               <div className="border border-gray-200 rounded-xl overflow-hidden">
                 <button
