@@ -110,10 +110,11 @@ export default function EquipePage() {
   };
 
   const getUserStats = (userId: string) => {
-    const openTasks = tasks.filter((t) => t.assigneeId === userId && t.status !== "concluida").length;
-    const doneTasks = tasks.filter((t) => t.assigneeId === userId && t.status === "concluida").length;
-    const activeProjects = projects.filter((p) => p.teamIds.includes(userId) && p.status !== "concluido" && p.status !== "cancelado").length;
-    return { openTasks, doneTasks, activeProjects };
+    const userTasks = tasks.filter((t) => t.assigneeId === userId && t.status !== "concluida");
+    const userProjects = projects.filter((p) => p.managerId === userId || (p.teamIds ?? []).includes(userId));
+    // Soma horas estimadas; tarefas sem estimativa contam 1h por padrão
+    const estimatedHours = userTasks.reduce((sum, t) => sum + (t.estimatedHours ?? 1), 0);
+    return { openTasks: userTasks.length, projects: userProjects.length, estimatedHours };
   };
 
   const roleCount = (role: Role) => users.filter((u) => u.role === role && u.active).length;
@@ -250,7 +251,7 @@ export default function EquipePage() {
               {users.filter((u) => u.active).map((user) => {
                 const stats = getUserStats(user.id);
                 const capacity = capacityEdit[user.id] ?? ((user as UserType & { dailyCapacity?: number }).dailyCapacity ?? 8);
-                const used = Math.min(stats.openTasks * 1.5, capacity);
+                const used = Math.min(stats.estimatedHours, capacity);
                 const pct = Math.min(Math.round((used / capacity) * 100), 100);
                 const status = pct >= 90 ? "sobrecarregado" : pct >= 65 ? "ocupado" : "disponível";
                 const barColor = pct >= 90 ? "bg-red-500" : pct >= 65 ? "bg-yellow-400" : "bg-green-400";
@@ -270,7 +271,7 @@ export default function EquipePage() {
                           <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <p className="text-xs text-gray-400">{stats.openTasks} tarefas abertas · {pct}% da capacidade</p>
+                          <p className="text-xs text-gray-400">{stats.openTasks} tarefas · {stats.estimatedHours.toFixed(1)}h estimadas · {pct}% da capacidade</p>
                           <div className="flex items-center gap-1">
                             <button onClick={() => setCapacityEdit((p) => ({ ...p, [user.id]: Math.max(1, capacity - 1) }))}
                               className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-700 transition-colors">
@@ -309,7 +310,7 @@ export default function EquipePage() {
               {users.filter((u) => u.active).map((user) => {
                 const stats = getUserStats(user.id);
                 const capacity = (user as UserType & { dailyCapacity?: number }).dailyCapacity ?? 8;
-                const used = Math.min(stats.openTasks * 1.5, capacity);
+                const used = Math.min(stats.estimatedHours, capacity);
                 return { user, free: capacity - used, pct: Math.round((used / capacity) * 100) };
               }).sort((a, b) => b.free - a.free).slice(0, 4).map(({ user, free, pct }) => (
                 <div key={user.id} className={cn("flex items-center gap-3 p-3 rounded-xl border-2 border-black shadow-[2px_2px_0px_#000]",
@@ -428,6 +429,25 @@ export default function EquipePage() {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contato</p>
                 <div className="flex items-center gap-2 text-sm text-gray-700"><Mail size={14} className="text-gray-400" />{detail.email}</div>
                 {detail.phone && <div className="flex items-center gap-2 text-sm text-gray-700"><Phone size={14} className="text-gray-400" />{detail.phone}</div>}
+              </div>
+
+              {/* Especialidade / Dashboard View */}
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Dashboard / Especialidade</p>
+                <p className="text-xs text-gray-500">Define qual visualização o colaborador verá ao entrar no sistema.</p>
+                <select
+                  defaultValue={(detail as typeof detail & { specialty?: string }).specialty ?? ""}
+                  onChange={async (e) => {
+                    await updateUser(detail.id, { specialty: e.target.value || null } as Parameters<typeof updateUser>[1]);
+                  }}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400 bg-white"
+                >
+                  <option value="">Geral (sem especialidade)</option>
+                  <option value="designer">Designer</option>
+                  <option value="video_editor">Editor de Vídeo</option>
+                  <option value="seller">Vendedor / Comercial</option>
+                  <option value="social_media">Social Media</option>
+                </select>
               </div>
 
               {/* Reset de Senha */}

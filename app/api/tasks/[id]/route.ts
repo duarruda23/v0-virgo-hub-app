@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sql from "@/lib/db";
 
 function dbTo(r: Record<string, unknown>) {
-  return { id: r.id, title: r.title, description: r.description, projectId: r.project_id, deliveryId: r.delivery_id, assigneeId: r.assignee_id, creatorId: r.creator_id, status: r.status, priority: r.priority, dueDate: r.due_date, completedAt: r.completed_at, tags: r.tags ?? [], createdAt: r.created_at, updatedAt: r.updated_at };
+  return { id: r.id, title: r.title, description: r.description, projectId: r.project_id, deliveryId: r.delivery_id, assigneeId: r.assignee_id, creatorId: r.creator_id, status: r.status, priority: r.priority, dueDate: r.due_date, completedAt: r.completed_at, estimatedHours: r.estimated_hours ? Number(r.estimated_hours) : null, tags: r.tags ?? [], createdAt: r.created_at, updatedAt: r.updated_at };
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -17,9 +17,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       assignee_id  = COALESCE(${b.assigneeId ?? null}, assignee_id),
       status       = COALESCE(${b.status ?? null}, status),
       priority     = COALESCE(${b.priority ?? null}, priority),
-      due_date     = COALESCE(${b.dueDate ?? null}, due_date),
-      completed_at = COALESCE(${b.completedAt ?? null}, completed_at),
-      tags         = COALESCE(${b.tags ?? null}, tags),
+      due_date        = COALESCE(${b.dueDate ?? null}, due_date),
+      completed_at    = COALESCE(${b.completedAt ?? null}, completed_at),
+      estimated_hours = CASE WHEN ${b.estimatedHours ?? null} IS NOT NULL THEN ${b.estimatedHours ?? null} ELSE estimated_hours END,
+      tags            = COALESCE(${b.tags ?? null}, tags),
       updated_at   = NOW()
     WHERE id = ${id} RETURNING *
   `;

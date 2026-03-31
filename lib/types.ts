@@ -131,6 +131,7 @@ export interface Task {
   priority: TaskPriority;
   dueDate?: string;
   completedAt?: string;
+  estimatedHours?: number | null;
   tags: string[];
   createdAt: string;
   updatedAt: string;

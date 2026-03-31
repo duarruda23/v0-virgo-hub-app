@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useMemo } from "react";
 import { ClientOnly } from "@/components/crm/ClientOnly";
-import { Plus, X, Search, Calendar, Flag } from "lucide-react";
+import { Plus, X, Search, Calendar, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTasks, createTask, updateTask, deleteTask, useUsers, useProjects } from "@/hooks/use-data";
 import type { Task, TaskStatus, TaskPriority } from "@/lib/types";
@@ -153,14 +153,22 @@ export default function TarefasPage() {
                         <p className="text-xs font-semibold text-gray-900 leading-tight flex-1">{task.title}</p>
                       </div>
 
-                      {task.dueDate && (
-                        <div className="flex items-center gap-1 mb-2">
-                          <Calendar suppressHydrationWarning size={9} className={isLate ? "text-red-400" : "text-gray-400"} />
-                          <span suppressHydrationWarning className={cn("text-[10px]", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
-                            {formatDate(task.dueDate)}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2 mb-2">
+                        {task.dueDate && (
+                          <div className="flex items-center gap-1">
+                            <Calendar suppressHydrationWarning size={9} className={isLate ? "text-red-400" : "text-gray-400"} />
+                            <span suppressHydrationWarning className={cn("text-[10px]", isLate ? "text-red-500 font-semibold" : "text-gray-400")}>
+                              {formatDate(task.dueDate)}
+                            </span>
+                          </div>
+                        )}
+                        {task.estimatedHours && (
+                          <div className="flex items-center gap-0.5">
+                            <Clock size={9} className="text-blue-400" />
+                            <span className="text-[10px] text-blue-500 font-semibold">{task.estimatedHours}h</span>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex items-center justify-between">
                         <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium", PRIORITY_COLORS[task.priority])}>
@@ -233,6 +241,19 @@ export default function TarefasPage() {
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Prazo</label>
                   <input type="date" value={modal.dueDate ?? ""} onChange={(e) => setModal((p) => ({ ...p, dueDate: e.target.value }))}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Horas Estimadas</label>
+                  <div className="relative">
+                    <Clock size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="number" min="0.25" max="100" step="0.25"
+                      value={modal.estimatedHours ?? ""}
+                      onChange={(e) => setModal((p) => ({ ...p, estimatedHours: e.target.value ? Number(e.target.value) : null }))}
+                      placeholder="Ex: 2.5"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-yellow-400"
+                    />
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Projeto</label>
